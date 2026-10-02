@@ -109,21 +109,247 @@ def copiar_estilo_seguro(origen, destino):
         if origen.protection: destino.protection = copy(origen.protection)
         if origen.alignment: destino.alignment = copy(origen.alignment)
 
+
+# --- 2. ESTILOS (solo estética) ---
+ESTILOS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --verde: #10b981;
+    --verde-osc: #059669;
+    --azul: #3b82f6;
+    --azul-osc: #1d4ed8;
+    --tinta: #0f172a;
+    --gris: #64748b;
+    --borde: #e2e8f0;
+    --fondo-card: #ffffff;
+}
+
+html, body, [class*="css"], .stApp {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Fondo general */
+.stApp {
+    background:
+        radial-gradient(1000px 500px at 10% -10%, rgba(59,130,246,.10), transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, rgba(16,185,129,.10), transparent 60%),
+        #f8fafc;
+}
+
+/* Ocultar elementos por defecto de Streamlit */
+#MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
+.block-container { max-width: 780px; padding-top: 2.2rem; padding-bottom: 3rem; }
+
+/* HERO */
+.hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #059669 120%);
+    border-radius: 24px;
+    padding: 2.4rem 2rem 2.2rem 2rem;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 40px -18px rgba(15,23,42,.5);
+    margin-bottom: 1.4rem;
+}
+.hero::after {
+    content: "";
+    position: absolute; right: -60px; top: -60px;
+    width: 220px; height: 220px; border-radius: 50%;
+    background: rgba(255,255,255,.08);
+}
+.hero::before {
+    content: "";
+    position: absolute; right: 60px; bottom: -90px;
+    width: 180px; height: 180px; border-radius: 50%;
+    background: rgba(16,185,129,.25);
+}
+.hero .badge {
+    display: inline-block;
+    font-size: .72rem; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.25);
+    padding: .3rem .7rem; border-radius: 999px; margin-bottom: .9rem;
+}
+.hero h1 {
+    font-size: 2.15rem; font-weight: 800; line-height: 1.15;
+    margin: 0 0 .6rem 0; padding: 0; color: #fff;
+}
+.hero p {
+    font-size: 1rem; color: rgba(255,255,255,.82);
+    margin: 0; max-width: 560px; line-height: 1.55;
+}
+
+/* Chips de características */
+.chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.1rem; position: relative; z-index: 1; }
+.chip {
+    font-size: .78rem; font-weight: 500; color: #fff;
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    padding: .3rem .75rem; border-radius: 999px;
+}
+
+/* Encabezados de paso */
+.paso {
+    display: flex; align-items: center; gap: .7rem;
+    margin: 1.8rem 0 .7rem 0;
+}
+.paso .num {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--azul), var(--verde));
+    color: #fff; font-weight: 700; font-size: .9rem;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 14px -4px rgba(59,130,246,.55);
+}
+.paso .titulo { font-size: 1.05rem; font-weight: 700; color: var(--tinta); }
+.paso .sub { font-size: .85rem; color: var(--gris); font-weight: 400; }
+
+/* Radio como tarjetas */
+div[role="radiogroup"] { gap: .6rem; }
+div[role="radiogroup"] > label {
+    background: var(--fondo-card);
+    border: 1.5px solid var(--borde);
+    border-radius: 14px;
+    padding: .85rem 1rem !important;
+    width: 100%;
+    transition: all .18s ease;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+}
+div[role="radiogroup"] > label:hover {
+    border-color: var(--azul);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px -10px rgba(59,130,246,.45);
+}
+div[role="radiogroup"] > label:has(input:checked) {
+    border-color: var(--azul);
+    background: linear-gradient(135deg, rgba(59,130,246,.07), rgba(16,185,129,.07));
+    box-shadow: 0 8px 20px -12px rgba(59,130,246,.6);
+}
+div[role="radiogroup"] label p { font-size: .95rem; font-weight: 500; color: var(--tinta); }
+
+/* Uploader */
+[data-testid="stFileUploader"] section {
+    background: var(--fondo-card);
+    border: 2px dashed #94a3b8;
+    border-radius: 18px;
+    padding: 1.6rem 1rem;
+    transition: all .2s ease;
+}
+[data-testid="stFileUploader"] section:hover {
+    border-color: var(--verde);
+    background: rgba(16,185,129,.04);
+}
+[data-testid="stFileUploader"] button {
+    border-radius: 10px;
+    border: 1.5px solid var(--azul);
+    color: var(--azul-osc);
+    font-weight: 600;
+}
+[data-testid="stFileUploader"] button:hover {
+    background: var(--azul); color: #fff; border-color: var(--azul);
+}
+
+/* Botón de descarga */
+.stDownloadButton > button {
+    width: 100%;
+    background: linear-gradient(135deg, var(--azul) 0%, var(--verde) 100%);
+    color: #fff; border: none;
+    padding: .95rem 1.2rem;
+    border-radius: 14px;
+    font-weight: 700; font-size: 1.02rem;
+    box-shadow: 0 14px 26px -12px rgba(16,185,129,.7);
+    transition: all .2s ease;
+}
+.stDownloadButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 30px -12px rgba(59,130,246,.7);
+    color: #fff; border: none;
+}
+.stDownloadButton > button:active { transform: translateY(0); }
+
+/* Tarjeta de resultado */
+.resultado {
+    background: var(--fondo-card);
+    border: 1px solid var(--borde);
+    border-left: 5px solid var(--verde);
+    border-radius: 16px;
+    padding: 1.2rem 1.3rem;
+    margin: 1.2rem 0 1rem 0;
+    box-shadow: 0 10px 24px -16px rgba(15,23,42,.25);
+}
+.resultado h3 { margin: 0 0 .25rem 0; font-size: 1.15rem; color: var(--tinta); }
+.resultado p { margin: 0; color: var(--gris); font-size: .92rem; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; margin-top: 1rem; }
+.stat {
+    background: #f8fafc; border: 1px solid var(--borde);
+    border-radius: 12px; padding: .7rem .8rem; text-align: center;
+}
+.stat .valor { font-size: 1.35rem; font-weight: 800; color: var(--azul-osc); }
+.stat .etq { font-size: .72rem; color: var(--gris); text-transform: uppercase; letter-spacing: .05em; }
+
+/* Alertas nativas más suaves */
+[data-testid="stAlert"] { border-radius: 14px; }
+
+/* Pie de página */
+.pie {
+    text-align: center; color: var(--gris); font-size: .8rem;
+    margin-top: 2.5rem; padding-top: 1.2rem; border-top: 1px solid var(--borde);
+}
+
+@media (max-width: 640px) {
+    .hero { padding: 1.7rem 1.3rem; }
+    .hero h1 { font-size: 1.6rem; }
+    .stats { grid-template-columns: 1fr; }
+}
+</style>
+"""
+
+def paso(numero, titulo, subtitulo=""):
+    sub = f'<div class="sub">{subtitulo}</div>' if subtitulo else ""
+    st.markdown(
+        f'<div class="paso"><div class="num">{numero}</div>'
+        f'<div><div class="titulo">{titulo}</div>{sub}</div></div>',
+        unsafe_allow_html=True,
+    )
+
 # --- INTERFAZ WEB STREAMLIT ---
-st.set_page_config(page_title="Procesador de Nombres UTP", layout="centered", page_icon="📊")
+st.set_page_config(page_title="Separador de Nombres UTP", layout="centered", page_icon="📊")
+st.markdown(ESTILOS, unsafe_allow_html=True)
 
-st.title("📊 Separador Inteligente de Nombres")
-st.markdown("Separa automáticamente los nombres en **4 columnas**, manteniendo intactas las tablas de Excel, los formatos y los filtros (como la fecha de nacimiento/edad).")
-
-tipo_archivo = st.radio(
-    "¿Cómo vienen los datos en la columna de nombres?", 
-    options=["CON_LETRAS", "SIN_LETRAS"],
-    format_func=lambda x: "🟢 El archivo contiene letras (A) o (B) al inicio." if x == "CON_LETRAS" else "🔵 El archivo NO contiene letras."
+st.markdown(
+    """
+    <div class="hero">
+        <div class="badge">Herramienta para Excel</div>
+        <h1>📊 Separador Inteligente de Nombres</h1>
+        <p>Divide automáticamente los nombres completos en 4 columnas, manteniendo intactas
+        las tablas de Excel, los formatos y los filtros.</p>
+        <div class="chips">
+            <span class="chip">✔ Conserva tablas y filtros</span>
+            <span class="chip">✔ Respeta formatos</span>
+            <span class="chip">✔ Detecta conectores (DE LA, DEL…)</span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-archivo_subido = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"])
+paso(1, "Tipo de archivo", "Indica cómo vienen los datos en la columna de nombres")
+tipo_archivo = st.radio(
+    "Formato de la columna de nombres",
+    options=["CON_LETRAS", "SIN_LETRAS"],
+    format_func=lambda x: "🟢 El archivo contiene letras (A) o (B) al inicio." if x == "CON_LETRAS" else "🔵 El archivo NO contiene letras.",
+    label_visibility="collapsed",
+)
+
+paso(2, "Sube tu archivo", "Formato Excel (.xlsx)")
+archivo_subido = st.file_uploader(
+    "Sube tu archivo Excel (.xlsx)", type=["xlsx"], label_visibility="collapsed"
+)
 
 if archivo_subido is not None:
+    paso(3, "Resultado", "Revisa y descarga tu archivo procesado")
     with st.spinner('Procesando archivo sin errores de estructura...'):
         try:
             wb = openpyxl.load_workbook(archivo_subido)
@@ -241,7 +467,20 @@ if archivo_subido is not None:
                 wb.save(output)
                 output.seek(0)
                 
-                st.success(f"✅ ¡Proceso impecable! Se procesaron {contador} registros sin dañar filtros ni estética.")
+                st.markdown(
+                    f"""
+                    <div class="resultado">
+                        <h3>✅ ¡Proceso completado!</h3>
+                        <p>Se separaron los nombres sin dañar filtros ni formatos.</p>
+                        <div class="stats">
+                            <div class="stat"><div class="valor">{contador}</div><div class="etq">Registros</div></div>
+                            <div class="stat"><div class="valor">4</div><div class="etq">Columnas nuevas</div></div>
+                            <div class="stat"><div class="valor">{"(A)/(B)" if tipo_archivo == "CON_LETRAS" else "Normal"}</div><div class="etq">Modo</div></div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 st.download_button(
                     label="📥 Descargar Archivo Procesado",
                     data=output,
@@ -250,3 +489,5 @@ if archivo_subido is not None:
                 )
         except Exception as e:
             st.error(f"Error procesando el archivo: {e}")
+
+st.markdown('<div class="pie">Procesador de Nombres UTP · Tus archivos se procesan en memoria y no se almacenan</div>', unsafe_allow_html=True)
