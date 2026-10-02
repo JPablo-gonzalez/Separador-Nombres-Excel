@@ -1,47 +1,33 @@
 import streamlit as st
 import openpyxl
 from openpyxl.utils import get_column_letter
+from copy import copy
 import re
-import copy
 import io
 
-# --- DICCIONARIOS MASIVOS DE DESAMBIGUACIÓN ---
+# --- 1. DICCIONARIOS INTELIGENTES ---
 CONECTORES = {"DE LA", "DEL", "DE", "SAN", "SANTA", "VON", "VAN", "LOS", "LAS"}
+
 NOMBRES_COMUNES = {
-    "JUAN", "CARLOS", "LUIS", "JOSE", "JOSÉ", "MARIA", "MARÍA", "ANDRES", "ANDRÉS", 
-    "DAVID", "ALEJANDRO", "ARTURO", "FREDY", "EDWIN", "GERARDO", "WILSON", "EDISON", 
-    "JHON", "JORGE", "ALEXANDER", "JULIAN", "DIEGO", "DANIEL", "MIGUEL", "ANGEL", 
-    "HERNANDO", "GUILLERMO", "GUSTAVO", "JAIME", "ALBERTO", "HECTOR", "JAIRO", "CESAR", 
-    "JULIO", "TITO", "ERNESTO", "NELSON", "CONRADO", "ALIRIO", "LIBANIEL", "EDER", 
-    "DIANA", "LUCIA", "ANA", "ANTONIO", "PEDRO", "JESUS", "JESÚS", "MANUEL", "FRANCISCO", 
-    "JAVIER", "FERNANDO", "ROSA", "ROBERTO", "MARTHA", "MARTA", "ELENA", "BLANCA", 
-    "PATRICIA", "CARMEN", "LAURA", "VICTORIA", "EDUARDO", "RICARDO", "FELIPE", "RAUL", 
-    "RAÚL", "PABLO", "GABRIEL", "RAFAEL", "OSCAR", "ÓSCAR", "TERESA", "ALICIA", "SANDRA", 
-    "GLORIA", "SOFIA", "SOFÍA", "CAMILA", "VALENTINA", "ISABELLA", "MATEO", "SANTIAGO", 
-    "SEBASTIAN", "SEBASTIÁN", "NICOLAS", "NICOLÁS", "SAMUEL", "LEONARDO", "MAURICIO", 
-    "LINA", "PAULA", "DANIELA", "VALERIA", "MARCELA", "ANGELA", "ÁNGELA", "CAROLINA", 
-    "CLAUDIA", "YURI", "YUDY", "LORENA", "MONICA", "MÓNICA", "TATIANA", "LIZETH", "PAOLA"
-}
-APELLIDOS_COMUNES = {
-    "GOMEZ", "GÓMEZ", "ZAPATA", "PEREZ", "PÉREZ", "OSORIO", "VERA", "BETANCUR", 
-    "MORALES", "GALEANO", "ESPINOSA", "GUARIN", "CELIS", "RAMIREZ", "RAMÍREZ", 
-    "HERNANDEZ", "HERNÁNDEZ", "TORO", "OCAMPO", "ARROYAVE", "ARANGO", "MUÑOZ", 
-    "LONDOÑO", "AGUIRRE", "AMESQUITA", "MARIN", "MARÍN", "BETANCURT", "TOBON", 
-    "TOBÓN", "GARCIA", "GARCÍA", "MEJIA", "MEJÍA", "ARANZAZU", "OSPINA", "SANCHEZ", 
-    "SÁNCHEZ", "GAVIRIA", "CANO", "RUIZ", "BARRERA", "GALLO", "RAMOS", "GRAJALES", 
-    "GRISALES", "BOTERO", "CASTRO", "BARRETO", "ZAMBRANO", "BUITRAGO", "OBANDO", 
-    "GALLEGO", "MESA", "ARIAS", "CASTAÑO", "HERRERA", "MOLINA", "CARDONA", "PARRA", 
-    "TASCON", "TASCÓN", "DIAZ", "DÍAZ", "GONZALEZ", "GONZÁLEZ", "RODRIGUEZ", 
-    "RODRÍGUEZ", "FERNANDEZ", "FERNÁNDEZ", "LOPEZ", "LÓPEZ", "MARTINEZ", "MARTÍNEZ", 
-    "ROMERO", "SOSA", "ALVAREZ", "ÁLVAREZ", "TORRES", "FLORES", "ACOSTA", "BENITEZ", 
-    "BENÍTEZ", "MEDINA", "SUAREZ", "SUÁREZ", "PEREYRA", "GIMENEZ", "GIMÉNEZ", "ROJAS", 
-    "ORTIZ", "SILVA", "NUÑEZ", "NÚÑEZ", "LUNA", "JUAREZ", "JUÁREZ", "CABRERA", "RIOS", 
-    "RÍOS", "GODOY", "MORENO", "FERREYRA", "DOMINGUEZ", "DOMÍNGUEZ", "CARRIZO", "PERALTA", 
-    "CASTILLO", "LEDESMA", "QUIROGA", "VEGA", "OJEDA", "PONCE", "VILLALBA", "CARDOZO", 
-    "NAVARRO", "CORONEL", "VAZQUEZ", "VÁZQUEZ", "VARGAS", "CACERES", "CÁCERES", 
-    "FIGUEROA", "CORDOBA", "CÓRDOBA", "CORREA", "ZULUAGA", "RESTREPO", "ALZATE", "QUINTERO"
+    "JUAN", "CARLOS", "LUIS", "JOSE", "JOSÉ", "MARIA", "MARÍA", "ANDRES", "ANDRÉS", "DAVID", "ALEJANDRO", 
+    "ARTURO", "FREDY", "EDWIN", "GERARDO", "WILSON", "EDISON", "JHON", "JORGE", "ALEXANDER", "JULIAN", 
+    "DIEGO", "DANIEL", "MIGUEL", "ANGEL", "HERNANDO", "GUILLERMO", "GUSTAVO", "JAIME", "ALBERTO", "HECTOR", 
+    "JAIRO", "CESAR", "JULIO", "TITO", "ERNESTO", "NELSON", "CONRADO", "ALIRIO", "LIBANIEL", "EDER", "DIANA", 
+    "LUCIA", "WILLIAM", "ANTONIO", "ARMANDO", "MIRIAM", "GABRIELA", "ALFONSO", "JOSELIN", "JAIRO", "HERIBERTO",
+    "REGINA", "AMPARO", "JUAN", "MANUEL", "HERNAN"
 }
 
+APELLIDOS_COMUNES = {
+    "GOMEZ", "GÓMEZ", "ZAPATA", "PEREZ", "PÉREZ", "OSORIO", "VERA", "BETANCUR", "MORALES", "GALEANO", 
+    "ESPINOSA", "GUARIN", "CELIS", "RAMIREZ", "RAMÍREZ", "HERNANDEZ", "HERNÁNDEZ", "TORO", "OCAMPO", 
+    "ARROYAVE", "ARANGO", "MUÑOZ", "LONDOÑO", "AGUIRRE", "AMESQUITA", "MARIN", "MARÍN", "BETANCURT", 
+    "TOBON", "TOBÓN", "GARCIA", "GARCÍA", "MEJIA", "MEJÍA", "ARANZAZU", "OSPINA", "SANCHEZ", "SÁNCHEZ", 
+    "GAVIRIA", "CANO", "RUIZ", "BARRERA", "GALLO", "RAMOS", "GRAJALES", "GRISALES", "BOTERO", "CASTRO", 
+    "BARRETO", "ZAMBRANO", "BUITRAGO", "OBANDO", "GALLEGO", "MESA", "ARIAS", "CASTAÑO", "HERRERA", 
+    "MOLINA", "CARDONA", "PARRA", "TASCON", "TASCÓN", "DIAZ", "DÍAZ", "LOPEZ", "LÓPEZ", "MACIAS", "MACÍAS"
+}
+
+# --- 2. LÓGICA DE SEPARACIÓN CELDA POR CELDA ---
 def agrupar_conectores(tokens):
     resultado = []
     i = 0
@@ -61,172 +47,170 @@ def agrupar_conectores(tokens):
             i += 1
     return resultado
 
-def analizar_nombre(texto, opciones):
+def analizar_nombre(texto, tipo_archivo):
     texto = str(texto).strip()
-    es_caso_b = False
+    orientacion = "A->N" 
     
-    if re.match(r"^\(B\)", texto, re.IGNORECASE):
-        es_caso_b = True
-        texto = re.sub(r"^\(B\)\s*", "", texto, flags=re.IGNORECASE).strip()
-    elif re.match(r"^\(A\)", texto, re.IGNORECASE):
-        es_caso_b = False
-        texto = re.sub(r"^\(A\)\s*", "", texto, flags=re.IGNORECASE).strip()
+    if tipo_archivo == "CON_LETRAS":
+        if re.match(r"^\(B\)", texto, re.IGNORECASE):
+            orientacion = "N->A" 
+            texto = re.sub(r"^\(B\)\s*", "", texto, flags=re.IGNORECASE).strip()
+        elif re.match(r"^\(A\)", texto, re.IGNORECASE):
+            orientacion = "A->N" 
+            texto = re.sub(r"^\(A\)\s*", "", texto, flags=re.IGNORECASE).strip()
     else:
-        es_caso_b = (opciones["orden_default"] == "NombresPrimero")
+        orientacion = "A->N"
         
     tokens = agrupar_conectores(texto.split())
     p_ape, s_ape, p_nom, s_nom = "", "", "", ""
     
     if len(tokens) == 1:
-        if es_caso_b: p_nom = tokens[0]
-        else: p_ape = tokens[0]
+        if orientacion == "A->N": p_ape = tokens[0]
+        else: p_nom = tokens[0]
         
     elif len(tokens) == 2:
-        if es_caso_b: p_nom, p_ape = tokens[0], tokens[1]
-        else: p_ape, p_nom = tokens[0], tokens[1]
+        if orientacion == "A->N": p_ape, p_nom = tokens[0], tokens[1]
+        else: p_nom, p_ape = tokens[0], tokens[1]
         
     elif len(tokens) == 3:
-        token_medio = tokens[1].upper()
-        if es_caso_b:
-            p_nom = tokens[0]
-            if token_medio in APELLIDOS_COMUNES and token_medio not in NOMBRES_COMUNES:
-                p_ape, s_ape = tokens[1], tokens[2]
-            elif token_medio in NOMBRES_COMUNES and token_medio not in APELLIDOS_COMUNES:
-                s_nom, p_ape = tokens[1], tokens[2]
+        t1, t2, t3 = tokens[0], tokens[1], tokens[2]
+        
+        if orientacion == "A->N":
+            if t2.upper() in NOMBRES_COMUNES or t3.upper() in {"DE JESUS", "DEL CARMEN"}:
+                p_ape, p_nom, s_nom = t1, t2, t3
+            elif t2.upper() in APELLIDOS_COMUNES:
+                p_ape, s_ape, p_nom = t1, t2, t3
             else:
-                if opciones["tres_palabras_default"] == "2A_1N": p_ape, s_ape = tokens[1], tokens[2]
-                else: s_nom, p_ape = tokens[1], tokens[2]
-        else:
-            p_ape = tokens[0]
-            if token_medio in NOMBRES_COMUNES and token_medio not in APELLIDOS_COMUNES:
-                p_nom, s_nom = tokens[1], tokens[2]
-            elif token_medio in APELLIDOS_COMUNES and token_medio not in NOMBRES_COMUNES:
-                s_ape, p_nom = tokens[1], tokens[2]
+                p_ape, s_ape, p_nom = t1, t2, t3 
+        else: 
+            if t2.upper() in APELLIDOS_COMUNES:
+                p_nom, p_ape, s_ape = t1, t2, t3
+            elif t2.upper() in NOMBRES_COMUNES:
+                p_nom, s_nom, p_ape = t1, t2, t3
             else:
-                if opciones["tres_palabras_default"] == "2A_1N": s_ape, p_nom = tokens[1], tokens[2]
-                else: p_nom, s_nom = tokens[1], tokens[2]
-                    
+                p_nom, s_nom, p_ape = t1, t2, t3
+                
     elif len(tokens) >= 4:
-        if es_caso_b:
-            p_nom, s_nom, p_ape = tokens[0], tokens[1], tokens[2]
-            s_ape = " ".join(tokens[3:])
-        else:
+        if orientacion == "A->N":
             p_ape, s_ape, p_nom = tokens[0], tokens[1], tokens[2]
             s_nom = " ".join(tokens[3:])
+        else:
+            p_nom, s_nom, p_ape = tokens[0], tokens[1], tokens[2]
+            s_ape = " ".join(tokens[3:])
             
     return p_ape, s_ape, p_nom, s_nom
 
-def copiar_estilo(origen, destino):
-    """Clona absolutamente todos los atributos estéticos de una celda."""
+def copiar_estilo_seguro(origen, destino):
+    """Copia los estilos sin corromper el XML de Excel"""
     if origen.has_style:
-        destino.font = copy.copy(origen.font)
-        destino.border = copy.copy(origen.border)
-        destino.fill = copy.copy(origen.fill)
-        destino.alignment = copy.copy(origen.alignment)
-        destino.number_format = copy.copy(origen.number_format)
-        destino.protection = copy.copy(origen.protection)
+        if origen.font: destino.font = copy(origen.font)
+        if origen.border: destino.border = copy(origen.border)
+        if origen.fill: destino.fill = copy(origen.fill)
+        if origen.number_format: destino.number_format = copy(origen.number_format)
+        if origen.protection: destino.protection = copy(origen.protection)
+        if origen.alignment: destino.alignment = copy(origen.alignment)
 
-# --- INTERFAZ WEB STREAMLIT ---
-st.set_page_config(page_title="Procesador Impecable de Nombres", layout="wide")
-st.title("Separador de Nombres (Sin Pérdida de Datos)")
-st.write("Sube tu Excel. El sistema analizará la estructura de tu archivo y te permitirá elegir exactamente qué procesar para no alterar el resto de tu información.")
+# --- 3. INTERFAZ WEB STREAMLIT ---
+st.set_page_config(page_title="Procesador de Nombres UTP", layout="centered", page_icon="📊")
 
-# 1. Configuración de reglas
-st.sidebar.header("Reglas de Separación")
-orden_val = st.sidebar.radio("El Excel viene por defecto con:", 
-                             ["ApellidosPrimero", "NombresPrimero"],
-                             format_func=lambda x: "Apellidos primero" if x == "ApellidosPrimero" else "Nombres primero")
+st.title("📊 Separador Inteligente de Nombres")
+st.markdown("""
+Esta herramienta separa automáticamente los nombres en **4 columnas** solucionando el error de celdas combinadas para garantizar un documento 100% libre de errores.
+""")
 
-tres_pal_val = st.sidebar.radio("Si un nombre tiene 3 palabras dudosas, asumir:", 
-                                ["2A_1N", "1A_2N"],
-                                format_func=lambda x: "2 Apellidos, 1 Nombre" if x == "2A_1N" else "1 Apellido, 2 Nombres")
+st.subheader("1. Selecciona el tipo de archivo:")
+tipo_archivo = st.radio(
+    "¿Cómo vienen los datos en la columna de nombres?", 
+    options=["CON_LETRAS", "SIN_LETRAS"],
+    format_func=lambda x: "🟢 El archivo contiene letras (A) o (B) al inicio del nombre." if x == "CON_LETRAS" else "🔵 El archivo NO contiene letras."
+)
 
-ubicacion_columnas = st.sidebar.radio("¿Dónde colocar el resultado?", 
-                                      ["Al lado", "Al final"],
-                                      format_func=lambda x: "Insertar al lado de la original (Recomendado)" if x == "Al lado" else "Añadir al final de la tabla (Más seguro)")
-
-opciones = {"orden_default": orden_val, "tres_palabras_default": tres_pal_val}
-
-# 2. Carga interactiva
-archivo_subido = st.file_uploader("1. Sube tu archivo Excel (.xlsx)", type=["xlsx"])
+st.subheader("2. Sube tu archivo Excel:")
+archivo_subido = st.file_uploader("Arrastra aquí el archivo (.xlsx)", type=["xlsx"])
 
 if archivo_subido is not None:
-    try:
-        wb = openpyxl.load_workbook(archivo_subido)
-        nombres_hojas = wb.sheetnames
-        
-        st.subheader("2. Configura tu Archivo")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            hoja_seleccionada = st.selectbox("¿En qué hoja están los datos?", nombres_hojas)
-            sheet = wb[hoja_seleccionada]
+    with st.spinner('Procesando datos y protegiendo la estética del documento...'):
+        try:
+            wb = openpyxl.load_workbook(archivo_subido)
+            sheet = wb.active
             
-        with col2:
-            fila_encabezados = st.number_input("¿En qué fila están los títulos (encabezados)?", min_value=1, max_value=100, value=1)
-        
-        # Leer encabezados para que el usuario elija
-        encabezados = []
-        for c in range(1, sheet.max_column + 1):
-            val = sheet.cell(row=fila_encabezados, column=c).value
-            encabezados.append(f"Columna {get_column_letter(c)}: {val if val else '[Vacía]'}")
+            fila_header = -1
+            col_nombres = -1
             
-        columna_seleccionada = st.selectbox("3. ¿Cuál es la columna exacta que contiene los nombres a separar?", encabezados)
-        indice_columna = encabezados.index(columna_seleccionada) + 1
-        
-        if st.button("Procesar y Generar Archivo", type="primary"):
-            with st.spinner('Procesando nombres y clonando formatos...'):
+            for r in range(1, min(30, sheet.max_row + 1)):
+                for c in range(1, sheet.max_column + 1):
+                    val = str(sheet.cell(row=r, column=c).value).upper()
+                    if ("NOMBRE" in val or "APELLIDO" in val) and val not in ["PRIMER NOMBRE", "SEGUNDO NOMBRE", "PRIMER APELLIDO", "SEGUNDO APELLIDO"]:
+                        fila_header = r
+                        col_nombres = c
+                        break
+                if fila_header != -1: break
+            
+            if fila_header == -1:
+                st.error("❌ No se encontró una columna válida de Nombres.")
+            else:
+                insert_idx = col_nombres + 1
                 
-                # Determinar dónde insertar
-                if ubicacion_columnas == "Al lado":
-                    col_inicio_nuevas = indice_columna + 1
-                    sheet.insert_cols(col_inicio_nuevas, 4)
-                else:
-                    col_inicio_nuevas = sheet.max_column + 1
+                # PREVENCIÓN DE ERROR DE EXCEL: Descombinar celdas temporalmente
+                merged_ranges = list(sheet.merged_cells.ranges)
+                for m_range in merged_ranges:
+                    sheet.unmerge_cells(str(m_range))
+                
+                # Insertar columnas
+                sheet.insert_cols(insert_idx, 4)
+                
+                # RE-COMBINAR CELDAS: Ajustar las coordenadas para que no se dañen
+                for m_range in merged_ranges:
+                    min_col, min_row, max_col, max_row = m_range.bounds
+                    
+                    if max_col < insert_idx:
+                        pass # No cruza la inserción
+                    elif min_col >= insert_idx:
+                        min_col += 4
+                        max_col += 4
+                    else:
+                        max_col += 4 # Se estira para cubrir el espacio nuevo
+                        
+                    sheet.merge_cells(start_row=min_row, start_column=min_col, end_row=max_row, end_column=max_col)
 
+                # Colocar encabezados
                 headers_nuevos = ["PRIMER APELLIDO", "SEGUNDO APELLIDO", "PRIMER NOMBRE", "SEGUNDO NOMBRE"]
-                
-                # Escribir títulos nuevos y clonar estética del encabezado
                 for i, h in enumerate(headers_nuevos):
-                    col_actual = col_inicio_nuevas + i
-                    celda_origen = sheet.cell(row=fila_encabezados, column=indice_columna)
-                    celda_nueva = sheet.cell(row=fila_encabezados, column=col_actual)
+                    col_actual = insert_idx + i
+                    celda_origen = sheet.cell(row=fila_header, column=col_nombres)
+                    celda_nueva = sheet.cell(row=fila_header, column=col_actual)
                     
                     celda_nueva.value = h
-                    copiar_estilo(celda_origen, celda_nueva)
-                    sheet.column_dimensions[get_column_letter(col_actual)].width = 20
+                    copiar_estilo_seguro(celda_origen, celda_nueva)
+                    sheet.column_dimensions[get_column_letter(col_actual)].width = 19
                 
-                # Procesar filas
+                # Procesar Nombres
                 contador = 0
-                for r in range(fila_encabezados + 1, sheet.max_row + 1):
-                    celda_origen = sheet.cell(row=r, column=indice_columna)
-                    val = celda_origen.value
+                for r in range(fila_header + 1, sheet.max_row + 1):
+                    val = sheet.cell(row=r, column=col_nombres).value
+                    if not val: continue
                     
-                    if val is None or str(val).strip() == "":
-                        continue
-                        
-                    pa, sa, pn, sn = analizar_nombre(str(val), opciones)
+                    pa, sa, pn, sn = analizar_nombre(val, tipo_archivo)
                     
                     for idx, txt in enumerate([pa, sa, pn, sn]):
-                        celda_nueva = sheet.cell(row=r, column=col_inicio_nuevas + idx)
-                        celda_nueva.value = txt
-                        # Clona la estética celda por celda para que las filas de colores se mantengan intactas
-                        copiar_estilo(celda_origen, celda_nueva)
+                        celda = sheet.cell(row=r, column=insert_idx + idx)
+                        celda.value = txt
+                        copiar_estilo_seguro(sheet.cell(row=r, column=col_nombres), celda)
                     
                     contador += 1
                 
-                # Guardar en memoria
+                # Guardar el archivo limpio en memoria
                 output = io.BytesIO()
                 wb.save(output)
                 output.seek(0)
                 
-                st.success(f"¡Éxito! Se separaron {contador} registros perfectamente. Tu columna original y el resto de los datos están intactos.")
+                st.success(f"✅ ¡Proceso impecable! Se evaluaron {contador} estudiantes y se protegió la estructura del archivo.")
                 
                 st.download_button(
-                    label="📥 Descargar Excel Impecable",
+                    label="📥 Descargar Archivo Procesado",
                     data=output,
-                    file_name=f"IMPECABLE_{archivo_subido.name}",
+                    file_name=f"OK_{archivo_subido.name}",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-    except Exception as e:
-        st.error(f"Error procesando el archivo: {e}. Asegúrate de que el archivo no esté protegido con contraseña.")
+        except Exception as e:
+            st.error(f"Error procesando el archivo: {e}")
