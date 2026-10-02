@@ -136,21 +136,7 @@ LOGO_SVG = """
 """
 
 # Paletas de color: el resto del CSS solo usa estas variables.
-TEMA_CLARO = """
-    color-scheme: light;
-    --tinta: #0f172a;
-    --gris: #64748b;
-    --borde: #e2e8f0;
-    --fondo-app: #f8fafc;
-    --fondo-card: #ffffff;
-    --fondo-suave: #f8fafc;
-    --acento-texto: #1d4ed8;
-    --punteado: #94a3b8;
-    --glow-azul: rgba(59,130,246,.10);
-    --glow-verde: rgba(16,185,129,.10);
-    --sombra: rgba(15,23,42,.25);
-"""
-
+# Oscuro es el tema por defecto; Claro se activa solo con el botón.
 TEMA_OSCURO = """
     color-scheme: dark;
     --tinta: #e2e8f0;
@@ -166,18 +152,23 @@ TEMA_OSCURO = """
     --sombra: rgba(0,0,0,.65);
 """
 
-def css_tema(preferencia):
-    """Claro / Oscuro fuerzan la paleta; Automático sigue la preferencia del navegador."""
-    if preferencia == "claro":
-        cuerpo = f":root {{ {TEMA_CLARO} }}"
-    elif preferencia == "oscuro":
-        cuerpo = f":root {{ {TEMA_OSCURO} }}"
-    else:
-        cuerpo = (
-            f":root {{ {TEMA_CLARO} }}\n"
-            f"@media (prefers-color-scheme: dark) {{ :root {{ {TEMA_OSCURO} }} }}"
-        )
-    return f"<style>\n{cuerpo}\n</style>"
+TEMA_CLARO = """
+    color-scheme: light;
+    --tinta: #0f172a;
+    --gris: #64748b;
+    --borde: #e2e8f0;
+    --fondo-app: #f8fafc;
+    --fondo-card: #ffffff;
+    --fondo-suave: #f8fafc;
+    --acento-texto: #1d4ed8;
+    --punteado: #94a3b8;
+    --glow-azul: rgba(59,130,246,.10);
+    --glow-verde: rgba(16,185,129,.10);
+    --sombra: rgba(15,23,42,.25);
+"""
+
+CSS_TEMA_OSCURO = f"<style>:root {{ {TEMA_OSCURO} }}</style>"
+CSS_TEMA_CLARO = f"<style>:root {{ {TEMA_CLARO} }}</style>"
 
 ESTILOS = """
 <style>
@@ -208,21 +199,24 @@ html, body, [class*="css"], .stApp {
 #MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
 .block-container { max-width: 780px; padding-top: 1.4rem; padding-bottom: 3rem; }
 
-/* Selector de tema */
-[data-testid="stButtonGroup"] { justify-content: flex-end; }
-[data-testid="stButtonGroup"] button {
-    background: var(--fondo-card);
-    color: var(--gris);
-    border: 1px solid var(--borde);
-    font-weight: 600;
-    font-size: .82rem;
+/* Botón discreto de tema (esquina inferior izquierda) */
+.st-key-selector_tema {
+    position: fixed; left: 16px; bottom: 16px; z-index: 1000;
+    width: auto !important;
 }
-[data-testid="stButtonGroup"] button p { color: inherit; font-size: .82rem; font-weight: 600; }
-[data-testid="stButtonGroup"] button:hover { color: var(--tinta); border-color: var(--azul); }
-[data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] {
-    background: linear-gradient(135deg, var(--azul), var(--verde));
-    color: #fff;
-    border-color: transparent;
+.st-key-selector_tema button {
+    width: 38px; height: 38px; min-height: 0; padding: 0;
+    border-radius: 50%;
+    background: var(--fondo-card);
+    border: 1px solid var(--borde);
+    color: var(--gris);
+    opacity: .55;
+    box-shadow: 0 6px 16px -8px var(--sombra);
+    transition: opacity .2s ease, border-color .2s ease, transform .2s ease;
+}
+.st-key-selector_tema button p { color: inherit; font-size: 1.1rem; line-height: 1; }
+.st-key-selector_tema button:hover {
+    opacity: 1; color: var(--tinta); border-color: var(--azul); transform: scale(1.06);
 }
 
 /* HERO */
@@ -297,28 +291,79 @@ html, body, [class*="css"], .stApp {
 .paso .titulo { font-size: 1.05rem; font-weight: 700; color: var(--tinta); }
 .paso .sub { font-size: .85rem; color: var(--gris); font-weight: 400; }
 
-/* Radio como tarjetas */
-div[role="radiogroup"] { gap: .6rem; }
+/* Tipo de archivo: tarjetas seleccionables (sigue siendo un st.radio) */
+div[role="radiogroup"] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: .9rem;
+}
 div[role="radiogroup"] > label {
+    position: relative;
+    display: flex; flex-direction: column; align-items: flex-start;
+    margin: 0 !important;
+    min-height: 120px;
+    padding: 1.15rem 1.2rem 1.1rem 1.2rem !important;
     background: var(--fondo-card);
     border: 1.5px solid var(--borde);
-    border-radius: 14px;
-    padding: .85rem 1rem !important;
-    width: 100%;
+    border-radius: 18px;
+    cursor: pointer;
     transition: all .18s ease;
-    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+    box-shadow: 0 10px 24px -18px var(--sombra);
+    overflow: hidden;
+}
+/* ocultar el circulito nativo del radio */
+div[role="radiogroup"] > label > *:first-child { display: none !important; }
+div[role="radiogroup"] > label input { position: absolute; opacity: 0; pointer-events: none; }
+
+/* insignia de cada tarjeta */
+div[role="radiogroup"] > label::before {
+    display: inline-block;
+    margin-bottom: .75rem;
+    padding: .28rem .65rem;
+    border-radius: 999px;
+    font-size: .74rem; font-weight: 700; letter-spacing: .04em;
+    color: var(--acento-texto);
+    background: rgba(59,130,246,.12);
+    border: 1px solid rgba(59,130,246,.28);
+}
+div[role="radiogroup"] > label:nth-of-type(1)::before { content: "(A) · (B)"; }
+div[role="radiogroup"] > label:nth-of-type(2)::before { content: "Sin prefijo"; }
+
+/* título y descripción */
+div[role="radiogroup"] > label p { font-size: 1.02rem; font-weight: 700; color: var(--tinta); margin: 0; }
+div[role="radiogroup"] > label p::after {
+    display: block; margin-top: .35rem;
+    font-size: .82rem; font-weight: 400; line-height: 1.45; color: var(--gris);
+}
+div[role="radiogroup"] > label:nth-of-type(1) p::after { content: "(A) apellidos primero · (B) nombres primero"; }
+div[role="radiogroup"] > label:nth-of-type(2) p::after { content: "Los nombres no llevan letra: se leen apellidos primero"; }
+
+/* marca de selección */
+div[role="radiogroup"] > label::after {
+    content: "";
+    position: absolute; top: 14px; right: 14px;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1.5px solid var(--borde);
+    background: transparent;
+    transition: all .18s ease;
 }
 div[role="radiogroup"] > label:hover {
     border-color: var(--azul);
-    transform: translateY(-1px);
-    box-shadow: 0 8px 18px -10px rgba(59,130,246,.45);
+    transform: translateY(-2px);
+    box-shadow: 0 16px 28px -16px rgba(59,130,246,.55);
 }
 div[role="radiogroup"] > label:has(input:checked) {
     border-color: var(--azul);
-    background: linear-gradient(135deg, rgba(59,130,246,.10), rgba(16,185,129,.10));
-    box-shadow: 0 8px 20px -12px rgba(59,130,246,.6);
+    background: linear-gradient(135deg, rgba(59,130,246,.14), rgba(16,185,129,.12)), var(--fondo-card);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.22), 0 16px 28px -16px rgba(59,130,246,.6);
 }
-div[role="radiogroup"] label p { font-size: .95rem; font-weight: 500; color: var(--tinta); }
+div[role="radiogroup"] > label:has(input:checked)::after {
+    content: "✓";
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: .8rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--azul), var(--verde));
+    border-color: transparent;
+}
 
 /* Uploader */
 [data-testid="stFileUploader"] section {
@@ -407,6 +452,8 @@ div[role="radiogroup"] label p { font-size: .95rem; font-weight: 500; color: var
     .hero h1 { font-size: 2rem; }
     .hero .logo { width: 44px; height: 44px; }
     .stats { grid-template-columns: 1fr; }
+    div[role="radiogroup"] { grid-template-columns: 1fr; }
+    div[role="radiogroup"] > label { min-height: 0; }
 }
 </style>
 """
@@ -419,33 +466,26 @@ def paso(numero, titulo, subtitulo=""):
         unsafe_allow_html=True,
     )
 
-ETIQUETAS_TEMA = {
-    "auto": ":material/brightness_auto: Auto",
-    "claro": ":material/light_mode: Claro",
-    "oscuro": ":material/dark_mode: Oscuro",
-}
+def _alternar_tema():
+    st.session_state["tema_claro"] = not st.session_state.get("tema_claro", False)
 
 @st.fragment
 def selector_tema():
-    # Se ejecuta como fragmento: cambiar el tema no vuelve a procesar el archivo subido.
-    # "Auto" (valor inicial) sigue la preferencia del navegador mediante prefers-color-scheme.
-    eleccion = st.segmented_control(
-        "Tema",
-        options=list(ETIQUETAS_TEMA.keys()),
-        format_func=lambda k: ETIQUETAS_TEMA[k],
-        default="auto",
-        key="tema_preferido",
-        label_visibility="collapsed",
-    )
-    st.markdown(css_tema(eleccion or "auto"), unsafe_allow_html=True)
+    # Fragmento: cambiar el tema no vuelve a procesar el archivo subido.
+    claro = st.session_state.get("tema_claro", False)
+    with st.container(key="selector_tema"):
+        st.button(
+            ":material/dark_mode:" if claro else ":material/light_mode:",
+            key="btn_tema",
+            on_click=_alternar_tema,
+            help="Cambiar a tema oscuro" if claro else "Cambiar a tema claro",
+        )
+    if claro:
+        st.markdown(CSS_TEMA_CLARO, unsafe_allow_html=True)
 
 # --- INTERFAZ WEB STREAMLIT ---
 st.set_page_config(page_title=f"{NOMBRE_APP} · Separador de nombres", layout="centered", page_icon=ICONO_APP)
-st.markdown(ESTILOS, unsafe_allow_html=True)
-
-_, col_tema = st.columns([2, 3])
-with col_tema:
-    selector_tema()
+st.markdown(CSS_TEMA_OSCURO + ESTILOS, unsafe_allow_html=True)
 
 st.markdown(
     f"""
@@ -469,7 +509,7 @@ paso(1, "Tipo de archivo", "Indica cómo vienen los datos en la columna de nombr
 tipo_archivo = st.radio(
     "Formato de la columna de nombres",
     options=["CON_LETRAS", "SIN_LETRAS"],
-    format_func=lambda x: "🟢 El archivo contiene letras (A) o (B) al inicio." if x == "CON_LETRAS" else "🔵 El archivo NO contiene letras.",
+    format_func=lambda x: "Con letras (A) / (B)" if x == "CON_LETRAS" else "Sin letras",
     label_visibility="collapsed",
 )
 
@@ -621,3 +661,5 @@ if archivo_subido is not None:
             st.error(f"Error procesando el archivo: {e}")
 
 st.markdown(f'<div class="pie">{NOMBRE_APP} · Tus archivos se procesan en memoria y no se almacenan</div>', unsafe_allow_html=True)
+
+selector_tema()
