@@ -113,7 +113,7 @@ def copiar_estilo_seguro(origen, destino):
 # --- 2. ESTILOS (solo estética) ---
 import os
 
-NOMBRE_APP = "Onoma"
+NOMBRE_APP = "Desglosa"
 LEMA_APP = "Separador inteligente de nombres"
 ICONO_APP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "favicon.png")
 
