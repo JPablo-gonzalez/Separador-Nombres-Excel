@@ -616,7 +616,7 @@ if archivo_subido is not None:
                         max_col += 4
                     elif max_col >= insert_idx:
                         max_col += 4
-                    sheet.merge_cells(start_row=min_row, start_column=min_col, end_row=max_row, end_column=max_row)
+                    sheet.merge_cells(start_row=min_row, start_column=min_col, end_row=max_row, end_column=max_col)
                 
                 # 6. Procesar los datos fila por fila
                 contador = 0
