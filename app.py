@@ -111,6 +111,74 @@ def copiar_estilo_seguro(origen, destino):
 
 
 # --- 2. ESTILOS (solo estética) ---
+import os
+
+NOMBRE_APP = "Onoma"
+LEMA_APP = "Separador inteligente de nombres"
+ICONO_APP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "favicon.png")
+
+LOGO_SVG = """
+<svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d4ed8"/><stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#g)"/>
+  <rect x="13" y="15" width="38" height="9" rx="4.5" fill="#fff"/>
+  <rect x="30.5" y="27" width="3" height="4.5" fill="#fff" fill-opacity=".75"/>
+  <path d="M27 31h10l-5 5.5z" fill="#fff" fill-opacity=".75"/>
+  <rect x="13" y="39" width="7.4" height="10" rx="2.2" fill="#fff"/>
+  <rect x="23" y="39" width="7.4" height="10" rx="2.2" fill="#fff"/>
+  <rect x="33" y="39" width="7.4" height="10" rx="2.2" fill="#fff"/>
+  <rect x="43" y="39" width="7.4" height="10" rx="2.2" fill="#fff"/>
+</svg>
+"""
+
+# Paletas de color: el resto del CSS solo usa estas variables.
+TEMA_CLARO = """
+    color-scheme: light;
+    --tinta: #0f172a;
+    --gris: #64748b;
+    --borde: #e2e8f0;
+    --fondo-app: #f8fafc;
+    --fondo-card: #ffffff;
+    --fondo-suave: #f8fafc;
+    --acento-texto: #1d4ed8;
+    --punteado: #94a3b8;
+    --glow-azul: rgba(59,130,246,.10);
+    --glow-verde: rgba(16,185,129,.10);
+    --sombra: rgba(15,23,42,.25);
+"""
+
+TEMA_OSCURO = """
+    color-scheme: dark;
+    --tinta: #e2e8f0;
+    --gris: #94a3b8;
+    --borde: #263449;
+    --fondo-app: #0b1220;
+    --fondo-card: #111a2e;
+    --fondo-suave: #0e1627;
+    --acento-texto: #7db1ff;
+    --punteado: #475569;
+    --glow-azul: rgba(59,130,246,.16);
+    --glow-verde: rgba(16,185,129,.12);
+    --sombra: rgba(0,0,0,.65);
+"""
+
+def css_tema(preferencia):
+    """Claro / Oscuro fuerzan la paleta; Automático sigue la preferencia del navegador."""
+    if preferencia == "claro":
+        cuerpo = f":root {{ {TEMA_CLARO} }}"
+    elif preferencia == "oscuro":
+        cuerpo = f":root {{ {TEMA_OSCURO} }}"
+    else:
+        cuerpo = (
+            f":root {{ {TEMA_CLARO} }}\n"
+            f"@media (prefers-color-scheme: dark) {{ :root {{ {TEMA_OSCURO} }} }}"
+        )
+    return f"<style>\n{cuerpo}\n</style>"
+
 ESTILOS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -120,10 +188,6 @@ ESTILOS = """
     --verde-osc: #059669;
     --azul: #3b82f6;
     --azul-osc: #1d4ed8;
-    --tinta: #0f172a;
-    --gris: #64748b;
-    --borde: #e2e8f0;
-    --fondo-card: #ffffff;
 }
 
 html, body, [class*="css"], .stApp {
@@ -133,24 +197,44 @@ html, body, [class*="css"], .stApp {
 /* Fondo general */
 .stApp {
     background:
-        radial-gradient(1000px 500px at 10% -10%, rgba(59,130,246,.10), transparent 60%),
-        radial-gradient(900px 500px at 100% 0%, rgba(16,185,129,.10), transparent 60%),
-        #f8fafc;
+        radial-gradient(1000px 500px at 10% -10%, var(--glow-azul), transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, var(--glow-verde), transparent 60%),
+        var(--fondo-app) !important;
+    transition: background-color .25s ease;
 }
+[data-testid="stAppViewContainer"], [data-testid="stMain"] { background: transparent !important; }
 
 /* Ocultar elementos por defecto de Streamlit */
 #MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
-.block-container { max-width: 780px; padding-top: 2.2rem; padding-bottom: 3rem; }
+.block-container { max-width: 780px; padding-top: 1.4rem; padding-bottom: 3rem; }
+
+/* Selector de tema */
+[data-testid="stButtonGroup"] { justify-content: flex-end; }
+[data-testid="stButtonGroup"] button {
+    background: var(--fondo-card);
+    color: var(--gris);
+    border: 1px solid var(--borde);
+    font-weight: 600;
+    font-size: .82rem;
+}
+[data-testid="stButtonGroup"] button p { color: inherit; font-size: .82rem; font-weight: 600; }
+[data-testid="stButtonGroup"] button:hover { color: var(--tinta); border-color: var(--azul); }
+[data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] {
+    background: linear-gradient(135deg, var(--azul), var(--verde));
+    color: #fff;
+    border-color: transparent;
+}
 
 /* HERO */
 .hero {
     background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #059669 120%);
+    border: 1px solid rgba(255,255,255,.06);
     border-radius: 24px;
-    padding: 2.4rem 2rem 2.2rem 2rem;
+    padding: 2.3rem 2rem 2.2rem 2rem;
     color: #fff;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 20px 40px -18px rgba(15,23,42,.5);
+    box-shadow: 0 20px 40px -18px var(--sombra);
     margin-bottom: 1.4rem;
 }
 .hero::after {
@@ -171,15 +255,22 @@ html, body, [class*="css"], .stApp {
     text-transform: uppercase;
     background: rgba(255,255,255,.14);
     border: 1px solid rgba(255,255,255,.25);
-    padding: .3rem .7rem; border-radius: 999px; margin-bottom: .9rem;
+    padding: .3rem .7rem; border-radius: 999px; margin-bottom: 1rem;
+    position: relative; z-index: 1;
 }
+.hero .marca { display: flex; align-items: center; gap: .85rem; position: relative; z-index: 1; }
+.hero .logo { width: 52px; height: 52px; flex: none; filter: drop-shadow(0 8px 14px rgba(0,0,0,.35)); }
 .hero h1 {
-    font-size: 2.15rem; font-weight: 800; line-height: 1.15;
-    margin: 0 0 .6rem 0; padding: 0; color: #fff;
+    font-size: 2.5rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em;
+    margin: 0; padding: 0; color: #fff;
+}
+.hero .lema {
+    font-size: 1.02rem; font-weight: 600; color: rgba(255,255,255,.92);
+    margin: .55rem 0 .6rem 0; position: relative; z-index: 1;
 }
 .hero p {
-    font-size: 1rem; color: rgba(255,255,255,.82);
-    margin: 0; max-width: 560px; line-height: 1.55;
+    font-size: .98rem; color: rgba(255,255,255,.78);
+    margin: 0; max-width: 560px; line-height: 1.55; position: relative; z-index: 1;
 }
 
 /* Chips de características */
@@ -224,7 +315,7 @@ div[role="radiogroup"] > label:hover {
 }
 div[role="radiogroup"] > label:has(input:checked) {
     border-color: var(--azul);
-    background: linear-gradient(135deg, rgba(59,130,246,.07), rgba(16,185,129,.07));
+    background: linear-gradient(135deg, rgba(59,130,246,.10), rgba(16,185,129,.10));
     box-shadow: 0 8px 20px -12px rgba(59,130,246,.6);
 }
 div[role="radiogroup"] label p { font-size: .95rem; font-weight: 500; color: var(--tinta); }
@@ -232,24 +323,32 @@ div[role="radiogroup"] label p { font-size: .95rem; font-weight: 500; color: var
 /* Uploader */
 [data-testid="stFileUploader"] section {
     background: var(--fondo-card);
-    border: 2px dashed #94a3b8;
+    border: 2px dashed var(--punteado);
     border-radius: 18px;
     padding: 1.6rem 1rem;
     transition: all .2s ease;
 }
 [data-testid="stFileUploader"] section:hover {
     border-color: var(--verde);
-    background: rgba(16,185,129,.04);
+    background: rgba(16,185,129,.06);
 }
+[data-testid="stFileUploader"] section span,
+[data-testid="stFileUploader"] section small { color: var(--gris); }
 [data-testid="stFileUploader"] button {
     border-radius: 10px;
+    background: var(--fondo-card);
     border: 1.5px solid var(--azul);
-    color: var(--azul-osc);
+    color: var(--acento-texto);
     font-weight: 600;
 }
 [data-testid="stFileUploader"] button:hover {
     background: var(--azul); color: #fff; border-color: var(--azul);
 }
+[data-testid="stFileUploaderFile"] { color: var(--tinta); }
+[data-testid="stFileUploaderFile"] * { color: var(--tinta); }
+
+/* Spinner */
+[data-testid="stSpinner"] * { color: var(--tinta); }
 
 /* Botón de descarga */
 .stDownloadButton > button {
@@ -277,20 +376,25 @@ div[role="radiogroup"] label p { font-size: .95rem; font-weight: 500; color: var
     border-radius: 16px;
     padding: 1.2rem 1.3rem;
     margin: 1.2rem 0 1rem 0;
-    box-shadow: 0 10px 24px -16px rgba(15,23,42,.25);
+    box-shadow: 0 10px 24px -16px var(--sombra);
 }
 .resultado h3 { margin: 0 0 .25rem 0; font-size: 1.15rem; color: var(--tinta); }
 .resultado p { margin: 0; color: var(--gris); font-size: .92rem; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; margin-top: 1rem; }
 .stat {
-    background: #f8fafc; border: 1px solid var(--borde);
+    background: var(--fondo-suave); border: 1px solid var(--borde);
     border-radius: 12px; padding: .7rem .8rem; text-align: center;
 }
-.stat .valor { font-size: 1.35rem; font-weight: 800; color: var(--azul-osc); }
+.stat .valor { font-size: 1.35rem; font-weight: 800; color: var(--acento-texto); }
 .stat .etq { font-size: .72rem; color: var(--gris); text-transform: uppercase; letter-spacing: .05em; }
 
-/* Alertas nativas más suaves */
-[data-testid="stAlert"] { border-radius: 14px; }
+/* Alertas nativas */
+[data-testid="stAlert"] {
+    border-radius: 14px;
+    background: var(--fondo-card);
+    border: 1px solid var(--borde);
+}
+[data-testid="stAlert"] * { color: var(--tinta); }
 
 /* Pie de página */
 .pie {
@@ -300,7 +404,8 @@ div[role="radiogroup"] label p { font-size: .95rem; font-weight: 500; color: var
 
 @media (max-width: 640px) {
     .hero { padding: 1.7rem 1.3rem; }
-    .hero h1 { font-size: 1.6rem; }
+    .hero h1 { font-size: 2rem; }
+    .hero .logo { width: 44px; height: 44px; }
     .stats { grid-template-columns: 1fr; }
 }
 </style>
@@ -314,15 +419,40 @@ def paso(numero, titulo, subtitulo=""):
         unsafe_allow_html=True,
     )
 
+ETIQUETAS_TEMA = {
+    "auto": ":material/brightness_auto: Auto",
+    "claro": ":material/light_mode: Claro",
+    "oscuro": ":material/dark_mode: Oscuro",
+}
+
+@st.fragment
+def selector_tema():
+    # Se ejecuta como fragmento: cambiar el tema no vuelve a procesar el archivo subido.
+    # "Auto" (valor inicial) sigue la preferencia del navegador mediante prefers-color-scheme.
+    eleccion = st.segmented_control(
+        "Tema",
+        options=list(ETIQUETAS_TEMA.keys()),
+        format_func=lambda k: ETIQUETAS_TEMA[k],
+        default="auto",
+        key="tema_preferido",
+        label_visibility="collapsed",
+    )
+    st.markdown(css_tema(eleccion or "auto"), unsafe_allow_html=True)
+
 # --- INTERFAZ WEB STREAMLIT ---
-st.set_page_config(page_title="Separador de Nombres UTP", layout="centered", page_icon="📊")
+st.set_page_config(page_title=f"{NOMBRE_APP} · Separador de nombres", layout="centered", page_icon=ICONO_APP)
 st.markdown(ESTILOS, unsafe_allow_html=True)
 
+_, col_tema = st.columns([2, 3])
+with col_tema:
+    selector_tema()
+
 st.markdown(
-    """
+    f"""
     <div class="hero">
         <div class="badge">Herramienta para Excel</div>
-        <h1>📊 Separador Inteligente de Nombres</h1>
+        <div class="marca">{LOGO_SVG}<h1>{NOMBRE_APP}</h1></div>
+        <div class="lema">{LEMA_APP}</div>
         <p>Divide automáticamente los nombres completos en 4 columnas, manteniendo intactas
         las tablas de Excel, los formatos y los filtros.</p>
         <div class="chips">
@@ -490,4 +620,4 @@ if archivo_subido is not None:
         except Exception as e:
             st.error(f"Error procesando el archivo: {e}")
 
-st.markdown('<div class="pie">Procesador de Nombres UTP · Tus archivos se procesan en memoria y no se almacenan</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="pie">{NOMBRE_APP} · Tus archivos se procesan en memoria y no se almacenan</div>', unsafe_allow_html=True)
