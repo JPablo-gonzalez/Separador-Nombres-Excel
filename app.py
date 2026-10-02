@@ -15,7 +15,7 @@ NOMBRES_COMUNES = {
     "DIEGO", "DANIEL", "MIGUEL", "ANGEL", "HERNANDO", "GUILLERMO", "GUSTAVO", "JAIME", "ALBERTO", "HECTOR", 
     "JAIRO", "CESAR", "JULIO", "TITO", "ERNESTO", "NELSON", "CONRADO", "ALIRIO", "LIBANIEL", "EDER", "DIANA", 
     "LUCIA", "WILLIAM", "ANTONIO", "ARMANDO", "MIRIAM", "GABRIELA", "ALFONSO", "JOSELIN", "JAIRO", "HERIBERTO",
-    "REGINA", "AMPARO", "JUAN", "MANUEL", "HERNAN"
+    "REGINA", "AMPARO", "MANUEL", "HERNAN"
 }
 
 APELLIDOS_COMUNES = {
@@ -28,7 +28,6 @@ APELLIDOS_COMUNES = {
     "MOLINA", "CARDONA", "PARRA", "TASCON", "TASCÓN", "DIAZ", "DÍAZ", "LOPEZ", "LÓPEZ", "MACIAS", "MACÍAS"
 }
 
-# --- 2. LÓGICA DE SEPARACIÓN CELDA POR CELDA ---
 def agrupar_conectores(tokens):
     resultado = []
     i = 0
@@ -102,7 +101,6 @@ def analizar_nombre(texto, tipo_archivo):
     return p_ape, s_ape, p_nom, s_nom
 
 def copiar_estilo_seguro(origen, destino):
-    """Copia los estilos de la tabla sin alterar el código de Excel"""
     if origen.has_style:
         if origen.font: destino.font = copy(origen.font)
         if origen.border: destino.border = copy(origen.border)
@@ -111,24 +109,22 @@ def copiar_estilo_seguro(origen, destino):
         if origen.protection: destino.protection = copy(origen.protection)
         if origen.alignment: destino.alignment = copy(origen.alignment)
 
-# --- 3. INTERFAZ WEB STREAMLIT ---
+# --- INTERFAZ WEB STREAMLIT ---
 st.set_page_config(page_title="Procesador de Nombres UTP", layout="centered", page_icon="📊")
 
 st.title("📊 Separador Inteligente de Nombres")
-st.markdown("Esta herramienta separa automáticamente los nombres en **4 columnas** solucionando errores para proteger tus tablas y filtros de Excel.")
+st.markdown("Separa automáticamente los nombres en **4 columnas**, manteniendo intactas las tablas de Excel, los formatos y los filtros (como la fecha de nacimiento/edad).")
 
-st.subheader("1. Selecciona el tipo de archivo:")
 tipo_archivo = st.radio(
     "¿Cómo vienen los datos en la columna de nombres?", 
     options=["CON_LETRAS", "SIN_LETRAS"],
     format_func=lambda x: "🟢 El archivo contiene letras (A) o (B) al inicio." if x == "CON_LETRAS" else "🔵 El archivo NO contiene letras."
 )
 
-st.subheader("2. Sube tu archivo Excel:")
-archivo_subido = st.file_uploader("Arrastra aquí el archivo (.xlsx)", type=["xlsx"])
+archivo_subido = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"])
 
 if archivo_subido is not None:
-    with st.spinner('Separando nombres y reconstruyendo la arquitectura de los filtros...'):
+    with st.spinner('Procesando archivo sin errores de estructura...'):
         try:
             wb = openpyxl.load_workbook(archivo_subido)
             sheet = wb.active
@@ -150,7 +146,7 @@ if archivo_subido is not None:
             else:
                 insert_idx = col_nombres + 1
                 
-                # 1. PREVENCIÓN DE ERROR: Descombinar celdas temporalmente
+                # 1. Descombinar celdas temporalmente para evitar corrupción
                 merged_ranges = list(sheet.merged_cells.ranges)
                 for m_range in merged_ranges:
                     sheet.unmerge_cells(str(m_range))
@@ -158,7 +154,7 @@ if archivo_subido is not None:
                 # 2. Insertar las 4 columnas
                 sheet.insert_cols(insert_idx, 4)
                 
-                # 3. Colocar encabezados
+                # 3. Poner encabezados
                 headers_nuevos = ["PRIMER APELLIDO", "SEGUNDO APELLIDO", "PRIMER NOMBRE", "SEGUNDO NOMBRE"]
                 for i, h in enumerate(headers_nuevos):
                     col_actual = insert_idx + i
@@ -169,64 +165,64 @@ if archivo_subido is not None:
                     copiar_estilo_seguro(celda_origen, celda_nueva)
                     sheet.column_dimensions[get_column_letter(col_actual)].width = 19
                 
-                # 4. 🔥 RECONSTRUCCIÓN DE TABLAS (La magia que recupera los filtros) 🔥
+                # 4. Actualizar dinámicamente las Tablas de Excel para que los filtros y totales no se rompan
                 for table in list(sheet.tables.values()):
                     t_min_col, t_min_row, t_max_col, t_max_row = range_boundaries(table.ref)
-                    
                     if t_max_col >= insert_idx:
                         nuevo_max_col = t_max_col + 4
-                        t_min_col_ajustado = t_min_col
-                        if t_min_col >= insert_idx:
-                            t_min_col_ajustado += 4
-                            
-                        # Actualiza el rango invisible de la tabla
+                        t_min_col_ajustado = t_min_col if t_min_col < insert_idx else t_min_col + 4
+                        
                         table.ref = f"{get_column_letter(t_min_col_ajustado)}{t_min_row}:{get_column_letter(nuevo_max_col)}{t_max_row}"
                         
-                        # Reconstruye el diccionario de columnas de la tabla XML
+                        totals_rows = table.totalsRowCount if table.totalsRowCount else 0
+                        data_max_row = t_max_row - totals_rows
+                        ref_data_str = f"{get_column_letter(t_min_col_ajustado)}{t_min_row}:{get_column_letter(nuevo_max_col)}{data_max_row}"
+                        
+                        if table.autoFilter:
+                            table.autoFilter.ref = ref_data_str
+                        if table.sortState:
+                            header_rows = table.headerRowCount if table.headerRowCount else 1
+                            table.sortState.ref = f"{get_column_letter(t_min_col_ajustado)}{t_min_row + header_rows}:{get_column_letter(nuevo_max_col)}{data_max_row}"
+                        
+                        # Reconstruir columnas de la tabla para conservar propiedades de totales
                         nuevas_columnas = []
                         nombres_usados = set()
-                        
                         for c_idx in range(t_min_col_ajustado, nuevo_max_col + 1):
-                            valor_encabezado = str(sheet.cell(row=t_min_row, column=c_idx).value).strip()
-                            if not valor_encabezado or valor_encabezado == "None":
-                                valor_encabezado = f"Columna_{c_idx}"
-                                
-                            nombre_final = valor_encabezado
-                            contador = 1
+                            val_enc = str(sheet.cell(row=t_min_row, column=c_idx).value).strip()
+                            if not val_enc or val_enc == "None": val_enc = f"Col_{c_idx}"
+                            
+                            nombre_final = val_enc
+                            cnt = 1
                             while nombre_final in nombres_usados:
-                                nombre_final = f"{valor_encabezado}_{contador}"
-                                contador += 1
+                                nombre_final = f"{val_enc}_{cnt}"
+                                cnt += 1
                             nombres_usados.add(nombre_final)
                             
-                            nuevas_columnas.append(TableColumn(id=c_idx - t_min_col_ajustado + 1, name=nombre_final))
+                            match_col = None
+                            for old_c in table.tableColumns:
+                                if old_c.name == val_enc:
+                                    match_col = old_c
+                                    break
                             
+                            if match_col:
+                                match_col.id = c_idx - t_min_col_ajustado + 1
+                                nuevas_columnas.append(match_col)
+                            else:
+                                nuevas_columnas.append(TableColumn(id=c_idx - t_min_col_ajustado + 1, name=nombre_final))
+                                
                         table.tableColumns = nuevas_columnas
 
-                # 5. PREVENCIÓN DE CORRUPCIÓN EN FILTROS NORMALES (AutoFilter)
-                if sheet.auto_filter and sheet.auto_filter.ref:
-                    f_min_col, f_min_row, f_max_col, f_max_row = range_boundaries(sheet.auto_filter.ref)
-                    if f_max_col >= insert_idx:
-                        f_nuevo_max_col = f_max_col + 4
-                        f_min_col_ajustado = f_min_col
-                        if f_min_col >= insert_idx:
-                            f_min_col_ajustado += 4
-                        sheet.auto_filter.ref = f"{get_column_letter(f_min_col_ajustado)}{f_min_row}:{get_column_letter(f_nuevo_max_col)}{f_max_row}"
-                
-                # 6. RE-COMBINAR CELDAS
+                # 5. Recombinar celdas manteniendo la estructura original
                 for m_range in merged_ranges:
                     min_col, min_row, max_col, max_row = m_range.bounds
-                    
-                    if max_col < insert_idx:
-                        pass
-                    elif min_col >= insert_idx:
+                    if min_col >= insert_idx:
                         min_col += 4
                         max_col += 4
-                    else:
-                        max_col += 4 
-                        
-                    sheet.merge_cells(start_row=min_row, start_column=min_col, end_row=max_row, end_column=max_col)
+                    elif max_col >= insert_idx:
+                        max_col += 4
+                    sheet.merge_cells(start_row=min_row, start_column=min_col, end_row=max_row, end_column=max_row)
                 
-                # 7. Procesar y escribir los Nombres
+                # 6. Procesar los datos fila por fila
                 contador = 0
                 for r in range(fila_header + 1, sheet.max_row + 1):
                     val = sheet.cell(row=r, column=col_nombres).value
@@ -241,13 +237,11 @@ if archivo_subido is not None:
                     
                     contador += 1
                 
-                # 8. Guardar el archivo limpio
                 output = io.BytesIO()
                 wb.save(output)
                 output.seek(0)
                 
-                st.success(f"✅ ¡Proceso impecable! Se evaluaron {contador} estudiantes y se protegió la arquitectura original de las Tablas.")
-                
+                st.success(f"✅ ¡Proceso impecable! Se procesaron {contador} registros sin dañar filtros ni estética.")
                 st.download_button(
                     label="📥 Descargar Archivo Procesado",
                     data=output,
