@@ -365,32 +365,87 @@ div[role="radiogroup"] > label:has(input:checked)::after {
     border-color: transparent;
 }
 
-/* Uploader */
+/* Zona de carga de archivo */
 [data-testid="stFileUploader"] section {
-    background: var(--fondo-card);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1.1rem;
+    text-align: center;
+    padding: 2.2rem 1.2rem 2rem 1.2rem;
+    background:
+        radial-gradient(420px 160px at 50% 0%, rgba(59,130,246,.10), transparent 70%),
+        var(--fondo-card);
     border: 2px dashed var(--punteado);
-    border-radius: 18px;
-    padding: 1.6rem 1rem;
+    border-radius: 22px;
+    box-shadow: 0 14px 30px -22px var(--sombra);
     transition: all .2s ease;
 }
 [data-testid="stFileUploader"] section:hover {
     border-color: var(--verde);
-    background: rgba(16,185,129,.06);
+    background:
+        radial-gradient(420px 160px at 50% 0%, rgba(16,185,129,.14), transparent 70%),
+        var(--fondo-card);
+    transform: translateY(-2px);
+    box-shadow: 0 20px 36px -22px rgba(16,185,129,.45);
 }
-[data-testid="stFileUploader"] section span,
-[data-testid="stFileUploader"] section small { color: var(--gris); }
-[data-testid="stFileUploader"] button {
-    border-radius: 10px;
+/* icono */
+[data-testid="stFileUploaderDropzoneInstructions"] {
+    display: flex; flex-direction: column; align-items: center; gap: .8rem;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] svg,
+[data-testid="stFileUploaderDropzoneInstructions"] [data-testid="stIconMaterial"] {
+    box-sizing: content-box;
+    width: 1.9rem; height: 1.9rem; font-size: 1.9rem; line-height: 1.9rem;
+    padding: .85rem;
+    color: #fff; fill: #fff;
+    overflow: hidden; white-space: nowrap;
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--azul), var(--verde));
+    box-shadow: 0 12px 22px -10px rgba(59,130,246,.65);
+}
+/* textos en español (reemplazan los de Streamlit) */
+[data-testid="stFileUploaderDropzoneInstructions"] > div > * { display: none; }
+[data-testid="stFileUploaderDropzoneInstructions"] > div::before {
+    content: "Arrastra tu archivo Excel aquí";
+    display: block;
+    font-size: 1.02rem; font-weight: 700; color: var(--tinta);
+}
+[data-testid="stFileUploaderDropzoneInstructions"] > div::after {
+    content: "o selecciónalo desde tu equipo · solo .xlsx";
+    display: block; margin-top: .3rem;
+    font-size: .82rem; font-weight: 400; color: var(--gris);
+}
+/* botón */
+[data-testid="stFileUploader"] section button {
+    font-size: 0 !important;
+    padding: .72rem 1.5rem;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--azul) 0%, var(--verde) 100%);
+    box-shadow: 0 14px 24px -12px rgba(16,185,129,.7);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+[data-testid="stFileUploader"] section button::after {
+    content: "Seleccionar archivo";
+    font-size: .92rem; font-weight: 700; letter-spacing: .01em; color: #fff;
+}
+[data-testid="stFileUploader"] section button * { display: none; }
+[data-testid="stFileUploader"] section button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 28px -12px rgba(59,130,246,.75);
+}
+[data-testid="stFileUploader"] section button:active { transform: translateY(0); }
+/* archivo ya cargado */
+[data-testid="stFileUploaderFile"] {
+    margin-top: .6rem;
+    padding: .65rem .9rem;
     background: var(--fondo-card);
-    border: 1.5px solid var(--azul);
-    color: var(--acento-texto);
-    font-weight: 600;
+    border: 1px solid var(--borde);
+    border-left: 4px solid var(--verde);
+    border-radius: 14px;
+    color: var(--tinta);
 }
-[data-testid="stFileUploader"] button:hover {
-    background: var(--azul); color: #fff; border-color: var(--azul);
-}
-[data-testid="stFileUploaderFile"] { color: var(--tinta); }
 [data-testid="stFileUploaderFile"] * { color: var(--tinta); }
+[data-testid="stFileUploaderFile"] small { color: var(--gris); }
 
 /* Spinner */
 [data-testid="stSpinner"] * { color: var(--tinta); }
