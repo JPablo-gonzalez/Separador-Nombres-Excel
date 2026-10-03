@@ -1,8 +1,11 @@
 import io
+import math
 import os
 import re
 import unicodedata
+from collections import Counter
 from copy import copy
+from dataclasses import dataclass
 
 import openpyxl
 import streamlit as st
@@ -25,11 +28,13 @@ def _norm(texto):
     return "".join(c for c in t if unicodedata.category(c) != "Mn")
 
 
-# Conectores de una sola palabra que se pegan a la(s) palabra(s) siguiente(s).
-# Con esto "DE LA CRUZ", "DEL RIO", "SAN JUAN", "VON TRAPP" quedan como un solo bloque.
+# Conectores que se pegan a la(s) palabra(s) siguiente(s): "DE LA CRUZ", "DEL RIO", "SAN JUAN"...
 CONECTORES = {"DE", "DEL", "LA", "LOS", "LAS", "SAN", "SANTA", "VON", "VAN", "DA", "DOS", "DAS", "DI"}
+# Los que, al abrir un bloque, delatan un apellido ("De La Cruz", "Del Rio", "Von Trapp").
+# SAN y SANTA quedan fuera: también aparecen en nombres.
+CONECTORES_APELLIDO = CONECTORES - {"SAN", "SANTA"}
 
-# Bloques religiosos que cierran un nombre compuesto (cuentan como UNA sola palabra).
+# Bloques religiosos que cierran un nombre compuesto (cuentan como UNA sola palabra y son nombre).
 RELIGIOSOS = {
     "DE JESUS", "DEL CARMEN", "DE MARIA", "DEL ROSARIO",
     "DEL PILAR", "DE LOS ANGELES", "DE LOS DOLORES",
@@ -42,7 +47,6 @@ _NOMBRES_BASE = {
     "CESAR", "JULIO", "TITO", "ERNESTO", "NELSON", "CONRADO", "ALIRIO", "LIBANIEL", "EDER", "DIANA",
     "LUCIA", "WILLIAM", "ANTONIO", "ARMANDO", "MIRIAM", "GABRIELA", "ALFONSO", "JOSELIN", "HERIBERTO",
     "REGINA", "AMPARO", "MANUEL", "HERNAN",
-    # ampliación
     "PABLO", "PEDRO", "SANTIAGO", "SEBASTIAN", "NICOLAS", "FELIPE", "MATEO", "SAMUEL", "JESUS",
     "FERNANDO", "RICARDO", "ROBERTO", "OSCAR", "MAURICIO", "FABIAN", "CRISTIAN", "STEVEN", "BRAYAN",
     "KEVIN", "JHONATAN", "YEISON", "ESTEBAN", "EDUARDO", "ALEXIS", "ANDREA", "PAOLA", "CATALINA",
@@ -50,6 +54,21 @@ _NOMBRES_BASE = {
     "SANDRA", "LUZ", "ELENA", "YESICA", "LEIDY", "NATALIA", "DANIELA", "MARIANA", "JULIANA",
     "PAULA", "ROSA", "LILIANA", "GLORIA", "BEATRIZ", "ADRIANA", "CAROLINA", "JOHAN", "SERGIO",
     "ISAAC", "EMMANUEL", "THOMAS", "SIMON", "JERONIMO", "MARTIN", "VICTOR", "RAFAEL", "ANDERSON",
+    # ampliación
+    "CAMILO", "GABRIEL", "LEONARDO", "LEON", "JAVIER", "IVAN", "FELIX", "MARCO", "MARCOS", "MARIO",
+    "HUGO", "ORLANDO", "RAUL", "ROBINSON", "ROLANDO", "ELKIN", "EDGAR", "FABIO", "FRANCISCO", "HENRY",
+    "JHONNY", "JOAQUIN", "LEONEL", "NESTOR", "OMAR", "OSWALDO", "RODRIGO", "SAUL", "TOMAS", "WALTER",
+    "ALVARO", "ALAN", "DYLAN", "JUSTIN", "LUCAS", "BRYAN", "JEFFERSON", "SNEIDER", "YEFERSON", "JHOAN",
+    "CRISTHIAN", "STIVEN", "DUVAN", "DEIBY", "YEISSON", "WILMAR", "WILDER", "FAVIO", "FABRICIO",
+    "SARA", "NICOLE", "SHIRLEY", "KAREN", "LINA", "MONICA", "JENNIFER", "YULIANA", "MELISSA",
+    "ALEJANDRA", "JOHANNA", "JOHANA", "TATIANA", "MARCELA", "ANGELA", "ANGIE", "JUANA", "LUISA",
+    "FERNANDA", "ISABEL", "VERONICA", "DAYANA", "ESTEFANIA", "STEFANIA", "MARISOL", "YULIETH",
+    "MAYERLY", "ALEXANDRA", "AURA", "BLANCA", "CARMEN", "CECILIA", "CLARA", "DORA", "ELSA", "EMILIA",
+    "ESPERANZA", "EVA", "FLOR", "GISELA", "GRACIELA", "INES", "IRENE", "JUDITH", "KATHERINE",
+    "LORENA", "LUCERO", "MABEL", "MARGARITA", "MARISELA", "MELANIE", "MERCEDES", "NANCY", "NORA",
+    "OLGA", "PILAR", "RAQUEL", "RUTH", "SILVIA", "SOL", "SUSANA", "TERESA", "VANESSA", "VIVIANA",
+    "XIMENA", "YOLANDA", "YURANI", "ZULEIDY", "MARIA", "KATHERIN", "KAROL", "LEIDY", "MAIRA",
+    "ESTEFANY", "YENNY", "RAMIRO", "CIRO", "YESENIA", "JESSICA", "JESICA", "DAISY", "DEISY", "ERIKA", "ERICA", "SHARON",
 }
 
 _APELLIDOS_BASE = {
@@ -59,13 +78,27 @@ _APELLIDOS_BASE = {
     "OSPINA", "SANCHEZ", "GAVIRIA", "CANO", "RUIZ", "BARRERA", "GALLO", "RAMOS", "GRAJALES",
     "GRISALES", "BOTERO", "CASTRO", "BARRETO", "ZAMBRANO", "BUITRAGO", "OBANDO", "GALLEGO", "MESA",
     "ARIAS", "CASTANO", "HERRERA", "MOLINA", "CARDONA", "PARRA", "TASCON", "DIAZ", "LOPEZ", "MACIAS",
-    # ampliación
     "RODRIGUEZ", "MARTINEZ", "GONZALEZ", "VARGAS", "JIMENEZ", "RESTREPO", "QUINTERO", "FIGUEROA",
     "SUAREZ", "CARDENAS", "ROJAS", "GUTIERREZ", "ORTIZ", "VELEZ", "DUQUE", "VALENCIA", "CORREA",
     "URIBE", "ALZATE", "MORENO", "SALAZAR", "CARDOSO", "MONTOYA", "JARAMILLO", "NARANJO", "PALACIO",
     "PALACIOS", "FRANCO", "HOYOS", "VILLA", "AGUDELO", "VASQUEZ", "TORRES", "FLOREZ", "ESCOBAR",
     "CASTILLO", "ROMERO", "ALVAREZ", "ACEVEDO", "SERNA", "USUGA", "ECHEVERRI", "POSADA", "LOAIZA",
     "HENAO", "MURILLO", "ZULUAGA", "OROZCO", "CARVAJAL", "BEDOYA", "RIVERA", "SIERRA", "PINEDA",
+    # ampliación
+    "ALVARADO", "ARBOLEDA", "ATEHORTUA", "AVENDANO", "BALLESTEROS", "BERRIO", "BLANDON", "CALLE",
+    "CAMPUZANO", "CARO", "CASAS", "CEBALLOS", "CHAVARRIA", "COLORADO", "CORTES", "CUARTAS",
+    "DELGADO", "DURANGO", "ESTRADA", "FERNANDEZ", "FUENTES", "GIL", "GIRALDO", "GUERRA", "GUZMAN",
+    "HIGUITA", "HINCAPIE", "HOLGUIN", "LEON", "LOZANO", "MADRID", "MARQUEZ", "MAZO", "MEDINA",
+    "MENDEZ", "MENDOZA", "MIRA", "MONSALVE", "MONTES", "MORA", "MUNERA", "NIETO", "NUNEZ", "OCHOA",
+    "OLARTE", "OSSA", "PABON", "PAEZ", "PATINO", "PELAEZ", "PEREA", "PIEDRAHITA", "QUICENO", "QUIROZ",
+    "RENDON", "RENTERIA", "REYES", "RIOS", "RIVAS", "ROLDAN", "SALDARRIAGA", "SOTO", "TABARES",
+    "TAMAYO", "TREJOS", "TRUJILLO", "VALDERRAMA", "VALLEJO", "VARELA", "VELASQUEZ", "VERGARA",
+    "VIDAL", "YEPES", "CRUZ", "MARTIN", "BEJARANO", "BERMUDEZ", "BUSTAMANTE", "CAICEDO", "CAMACHO",
+    "CARRILLO", "CHACON", "CORDOBA", "COSSIO", "DOMINGUEZ", "ESPITIA", "GAITAN", "GALVIS", "GARZON",
+    "GIRON", "GUEVARA", "IBARRA", "LARA", "LEAL", "LUNA", "MALDONADO", "MANRIQUE", "MARIN", "MEJIAS",
+    "MONTAÑO", "MONTANO", "NAVARRO", "ORDONEZ", "PADILLA", "PAREDES", "PENA", "PRADA", "QUINTANA",
+    "RANGEL", "SALGADO", "SANDOVAL", "SEPULVEDA", "SOLANO", "TELLO", "URREGO", "VACA",
+    "VEGA", "VILLEGAS", "YEPEZ", "ZABALA", "ZUNIGA",
 }
 
 # Los sets exponen el contenido normalizado (sin tildes) para comparar sin importar el acento.
@@ -91,86 +124,266 @@ def agrupar_conectores(tokens):
     return resultado
 
 
-def es_religioso(token):
-    return _norm(token) in RELIGIOSOS
-
-
 # =============================================================================
-# 2. ORIENTACIÓN POR CELDA Y DIVISIÓN DEL NOMBRE
+# 2. MOTOR DE DECISIÓN (orientación y reparto deducidos celda por celda)
 # =============================================================================
+#
+# Para cada celda se enumeran TODAS las lecturas posibles: cada orientación (N->A / A->N) y cada
+# reparto de palabras entre nombres (k) y apellidos (m). Cada lectura recibe un puntaje y gana la mayor.
+#
+#   · Prefijo (A)/(B): fija la orientación de esa celda (y se borra). Solo se decide el reparto.
+#   · Celda sin prefijo: las dos orientaciones compiten con la evidencia de las palabras:
+#       - diccionarios NOMBRES_COMUNES / APELLIDOS_COMUNES (evidencia fuerte, ±2),
+#       - palabras que el propio archivo enseña con sus filas más claras (evidencia media, ±1 a ±1.5),
+#       - terminaciones típicas de apellido (-EZ, -IZ, -OZ, -AZ) y conectores iniciales (evidencia débil),
+#       - estructura más frecuente (1-2 nombres, 2 apellidos) como último respaldo.
+#   · Si una celda no ofrece ninguna evidencia, se usa la tendencia de las filas claras del mismo
+#     archivo; si tampoco hay tendencia, el orden natural (Nombres -> Apellidos). Estas filas se
+#     marcan para revisión.
+
+MARGEN_ORIENTACION = 1.0      # diferencia mínima entre orientaciones para decidir por evidencia
+MARGEN_APRENDER_PREFIJO = 1.5  # con prefijo, el reparto debe ser claro para enseñar palabras nuevas
+MARGEN_APRENDER_AUTO = 3.0    # sin prefijo, la lectura debe ser muy clara para enseñar palabras nuevas
+MARGEN_REVISAR = 1.0          # por debajo de esta confianza la fila se marca para revisión
+ORIENTACION_NATURAL = "N->A"
+MAX_ITERACIONES = 4
+SUFIJOS_APELLIDO = ("EZ", "IZ", "OZ", "AZ")
 
 
-def detectar_orientacion(texto, tipo_archivo, orientacion_defecto):
-    """Devuelve (texto_sin_prefijo, orientacion, origen).
-
-    - CON_LETRAS: "(A) " -> A->N, "(B) " -> N->A (y se borra el prefijo, celda por celda).
-    - Celda sin prefijo (o archivo SIN_LETRAS): se usa la orientación elegida en la interfaz.
-    """
-    if orientacion_defecto not in ORIENTACIONES:
-        raise ValueError("La orientación por defecto debe ser 'N->A' o 'A->N'.")
-    texto = str(texto).strip()
-    if tipo_archivo == "CON_LETRAS":
-        m = RE_PREFIJO.match(texto)
-        if m:
-            letra = m.group(1).upper()
-            return texto[m.end():].strip(), ("A->N" if letra == "A" else "N->A"), letra
-    return texto, orientacion_defecto, "DEFECTO"
+@dataclass
+class Resultado:
+    texto: str                 # texto original de la celda
+    p_ape: str = ""
+    s_ape: str = ""
+    p_nom: str = ""
+    s_nom: str = ""
+    orientacion: str = ORIENTACION_NATURAL
+    origen: str = "AUTO"       # "A", "B" (prefijo) o "AUTO" (deducido)
+    confianza: float = 0.0
+    revisar: bool = False
+    motivo: str = ""
 
 
-def dividir_nombre(texto, orientacion):
-    """Reparte las palabras en (primer_apellido, segundo_apellido, primer_nombre, segundo_nombre)."""
-    tokens = agrupar_conectores(texto.split())
+class Lexico:
+    """Palabras que el propio archivo enseña, además de los diccionarios base."""
+
+    def __init__(self):
+        self.nombres = Counter()
+        self.apellidos = Counter()
+
+    def agregar(self, contribucion):
+        for (palabra, rol), cuantas in contribucion.items():
+            (self.nombres if rol == "N" else self.apellidos)[palabra] += cuantas
+
+    def peso(self, palabra, rol, excluir=None):
+        base = NOMBRES_COMUNES if rol == "N" else APELLIDOS_COMUNES
+        if palabra in base:
+            return 2.0
+        veces = (self.nombres if rol == "N" else self.apellidos)[palabra]
+        if excluir:                                   # una fila no se enseña a sí misma
+            veces -= excluir.get((palabra, rol), 0)
+        return min(1.5, 0.75 + 0.25 * veces) if veces > 0 else 0.0
+
+
+def _afinidades(token, lex, excluir=None):
+    """(afinidad como nombre, afinidad como apellido) de una palabra o bloque."""
+    clave = _norm(token)
+    if clave in RELIGIOSOS:
+        return 2.0, -2.0
+    palabras = clave.split()
+    nucleo = palabras[-1]
+    wn = lex.peso(nucleo, "N", excluir)
+    wa = lex.peso(nucleo, "A", excluir)
+    if wn and wa:                                      # palabra ambigua (León, Martín...)
+        an, aa = 0.5, 0.5
+    elif wn:
+        an, aa = wn, -wn
+    elif wa:
+        an, aa = -wa, wa
+    elif len(nucleo) >= 5 and nucleo.endswith(SUFIJOS_APELLIDO):
+        an, aa = -0.75, 0.75
+    else:
+        an, aa = 0.0, 0.0
+    if len(palabras) > 1 and palabras[0] in CONECTORES_APELLIDO:
+        an, aa = an - 1.0, aa + 1.0
+    return an, aa
+
+
+def _hipotesis(n):
+    """Todas las lecturas posibles: (orientación, nº de nombres k, nº de apellidos m)."""
+    if n == 1:
+        return [("N->A", 1, 0), ("A->N", 0, 1)]
+    return [(o, k, n - k) for o in ORIENTACIONES for k in range(1, n)]
+
+
+def _prior_estructura(k, m):
+    """Estructura más frecuente en Colombia: 2 apellidos y 1-2 nombres."""
+    if k + m == 1:
+        return 0.0
+    return -1.0 * abs(m - 2) - 0.5 * abs(k - 2)
+
+
+def _indices(n, orientacion, k, m):
+    """Posiciones de las palabras que son nombres y de las que son apellidos."""
+    if orientacion == "N->A":
+        return list(range(k)), list(range(k, n))
+    return list(range(m, n)), list(range(m))
+
+
+def _puntuar(afin, orientacion, k, m):
+    ni, ai = _indices(len(afin), orientacion, k, m)
+    return (sum(afin[i][0] for i in ni) + sum(afin[i][1] for i in ai) + _prior_estructura(k, m))
+
+
+@dataclass
+class _Evaluacion:
+    orientacion: str
+    k: int
+    m: int
+    fallback: bool
+    margen_est: float
+    margen_or: float
+
+    @property
+    def confianza(self):
+        return min(self.margen_est, self.margen_or)
+
+
+def _evaluar(tokens, fija, lex, excluir, prior_archivo):
     n = len(tokens)
-    p_ape = s_ape = p_nom = s_nom = ""
-    nombres_primero = orientacion == "N->A"
+    afin = [_afinidades(t, lex, excluir) for t in tokens]
+    puntos = {h: _puntuar(afin, *h) for h in _hipotesis(n)}
+    mejor = {o: max(p for h, p in puntos.items() if h[0] == o) for o in ORIENTACIONES}
 
-    if n == 0:
-        pass
+    if fija:
+        orientacion, fallback, margen_or = fija, False, math.inf
+    else:
+        dif = mejor["N->A"] - mejor["A->N"]
+        margen_or = abs(dif)
+        if margen_or >= MARGEN_ORIENTACION:
+            orientacion, fallback = ("N->A" if dif > 0 else "A->N"), False
+        else:                                          # sin evidencia: tendencia del archivo u orden natural
+            orientacion, fallback = (prior_archivo or ORIENTACION_NATURAL), True
 
-    elif n == 1:
-        if nombres_primero:
-            p_nom = tokens[0]
+    cand = sorted(((p, h) for h, p in puntos.items() if h[0] == orientacion),
+                  key=lambda x: (-x[0], x[1][1]))
+    _, (_, k, m) = cand[0]
+    margen_est = cand[0][0] - cand[1][0] if len(cand) > 1 else math.inf
+    return _Evaluacion(orientacion, k, m, fallback, margen_est, margen_or)
+
+
+def _contribucion(tokens, ev):
+    """Palabras desconocidas de una lectura clara: lo que esa fila le enseña al resto del archivo."""
+    ni, ai = _indices(len(tokens), ev.orientacion, ev.k, ev.m)
+    contribucion = Counter()
+    for rol, indices in (("N", ni), ("A", ai)):
+        for i in indices:
+            clave = _norm(tokens[i])
+            if clave in RELIGIOSOS:
+                continue
+            nucleo = clave.split()[-1]
+            if len(nucleo) < 3 or nucleo in NOMBRES_COMUNES or nucleo in APELLIDOS_COMUNES:
+                continue
+            contribucion[(nucleo, rol)] += 1
+    return contribucion
+
+
+def _puede_ensenar(ev, fija):
+    if fija:
+        return ev.margen_est >= MARGEN_APRENDER_PREFIJO
+    return (not ev.fallback) and ev.confianza >= MARGEN_APRENDER_AUTO
+
+
+def separar_prefijo(texto):
+    """(texto sin prefijo, orientación fijada por el prefijo o None, origen 'A' | 'B' | 'AUTO')."""
+    texto = str(texto).strip()
+    m = RE_PREFIJO.match(texto)
+    if m:
+        letra = m.group(1).upper()
+        return texto[m.end():].strip(), ("A->N" if letra == "A" else "N->A"), letra
+    return texto, None, "AUTO"
+
+
+def _armar(tokens, ev):
+    ni, ai = _indices(len(tokens), ev.orientacion, ev.k, ev.m)
+    nombres = [tokens[i] for i in ni]
+    apellidos = [tokens[i] for i in ai]
+    return (apellidos[0] if apellidos else "", " ".join(apellidos[1:]),
+            nombres[0] if nombres else "", " ".join(nombres[1:]))
+
+
+def _motivo(origen, ev, prior_archivo):
+    flecha = "Nombres → Apellidos" if ev.orientacion == "N->A" else "Apellidos → Nombres"
+    if origen in ("A", "B"):
+        texto = f"Prefijo ({origen}): {flecha}"
+    elif not ev.fallback:
+        texto = f"Deducido por los diccionarios: {flecha}"
+    elif prior_archivo:
+        texto = f"Sin palabras conocidas; se siguió la tendencia del archivo: {flecha}"
+    else:
+        texto = f"Sin palabras conocidas ni tendencia en el archivo; se asumió el orden natural: {flecha}"
+    if ev.margen_est < MARGEN_REVISAR:
+        texto += " (reparto de palabras poco claro)"
+    return texto
+
+
+def resolver_lista(textos):
+    """Resuelve TODAS las celdas de una columna con un único flujo.
+
+    Devuelve una lista de `Resultado` (uno por texto). Sirve igual para archivos mixtos (celdas con
+    (A), con (B) y sin letra) que para archivos sin ninguna letra.
+    """
+    preparadas = []
+    for texto in textos:
+        limpio, fija, origen = separar_prefijo(texto)
+        preparadas.append((texto, agrupar_conectores(limpio.split()), fija, origen))
+
+    total = len(preparadas)
+    lex, contribs, prior = Lexico(), [None] * total, None
+    previas, evals = None, []
+    for _ in range(MAX_ITERACIONES):
+        evals = [(_evaluar(tk, fija, lex, contribs[i], prior) if tk else None)
+                 for i, (_, tk, fija, _) in enumerate(preparadas)]
+        if previas is not None and all(
+                (a is None and b is None) or (a and b and (a.orientacion, a.k) == (b.orientacion, b.k))
+                for a, b in zip(previas, evals)):
+            break
+        previas = evals
+        # Se reconstruye lo aprendido a partir de las filas claras de esta vuelta.
+        lex, contribs = Lexico(), [None] * total
+        conteo = Counter()
+        for i, ((_, tk, fija, _), ev) in enumerate(zip(preparadas, evals)):
+            if ev is None:
+                continue
+            if _puede_ensenar(ev, fija):
+                contribs[i] = _contribucion(tk, ev)
+                lex.agregar(contribs[i])
+            if fija is None and not ev.fallback and ev.confianza >= MARGEN_APRENDER_AUTO:
+                conteo[ev.orientacion] += 1
+        if conteo["N->A"] != conteo["A->N"]:
+            prior = "N->A" if conteo["N->A"] > conteo["A->N"] else "A->N"
         else:
-            p_ape = tokens[0]
+            prior = None
 
-    elif n == 2:
-        if nombres_primero:
-            p_nom, p_ape = tokens
-        else:
-            p_ape, p_nom = tokens
-
-    elif n == 3:
-        t1, t2, t3 = tokens
-        c2 = _norm(t2)
-        if nombres_primero:
-            if c2 in APELLIDOS_COMUNES:                  # Julián Mejía Ospina -> 1 nombre + 2 apellidos
-                p_nom, p_ape, s_ape = t1, t2, t3
-            elif c2 in NOMBRES_COMUNES or es_religioso(t2):  # Juan Pablo Pérez -> 2 nombres + 1 apellido
-                p_nom, s_nom, p_ape = t1, t2, t3
-            else:                                         # respaldo N->A: 1 nombre + 2 apellidos
-                p_nom, p_ape, s_ape = t1, t2, t3
-        else:
-            if es_religioso(t3) or c2 in NOMBRES_COMUNES:   # Zapata Fredy Abelardo -> 1 apellido + 2 nombres
-                p_ape, p_nom, s_nom = t1, t2, t3
-            elif c2 in APELLIDOS_COMUNES:                 # Zapata Gómez Fredy -> 2 apellidos + 1 nombre
-                p_ape, s_ape, p_nom = t1, t2, t3
-            else:                                         # respaldo A->N: 2 apellidos + 1 nombre
-                p_ape, s_ape, p_nom = t1, t2, t3
-
-    else:  # 4 o más palabras
-        resto = " ".join(tokens[3:])
-        if nombres_primero:
-            p_nom, s_nom, p_ape, s_ape = tokens[0], tokens[1], tokens[2], resto
-        else:
-            p_ape, s_ape, p_nom, s_nom = tokens[0], tokens[1], tokens[2], resto
-
-    return p_ape, s_ape, p_nom, s_nom
+    resultados = []
+    for (texto, tokens, fija, origen), ev in zip(preparadas, evals):
+        if ev is None:
+            resultados.append(Resultado(texto=str(texto), origen=origen, motivo="Celda sin nombre"))
+            continue
+        pa, sa, pn, sn = _armar(tokens, ev)
+        resultados.append(Resultado(
+            texto=str(texto), p_ape=pa, s_ape=sa, p_nom=pn, s_nom=sn,
+            orientacion=ev.orientacion, origen=origen,
+            confianza=ev.confianza if math.isfinite(ev.confianza) else 99.0,
+            revisar=ev.fallback or ev.confianza < MARGEN_REVISAR,
+            motivo=_motivo(origen, ev, prior),
+        ))
+    return resultados
 
 
-def analizar_nombre(texto, tipo_archivo, orientacion_defecto):
-    """Devuelve (p_ape, s_ape, p_nom, s_nom, origen) donde origen es 'A', 'B' o 'DEFECTO'."""
-    limpio, orientacion, origen = detectar_orientacion(texto, tipo_archivo, orientacion_defecto)
-    return (*dividir_nombre(limpio, orientacion), origen)
+def analizar_nombre(texto):
+    """Una sola celda, sin el contexto del resto del archivo (útil para pruebas)."""
+    return resolver_lista([texto])[0]
 
 
 def copiar_estilo_seguro(origen, destino):
@@ -432,14 +645,11 @@ def ajustar_tabla(sheet, table, col_nombres, fila_header):
     table.tableColumns = nuevas_columnas
 
 
-def procesar_libro(wb, tipo_archivo, orientacion_defecto):
+def procesar_libro(wb):
     """Inserta las 4 columnas junto a la columna de nombres y rellena los datos.
-    Devuelve un diccionario con estadísticas y una vista previa."""
-    if tipo_archivo not in ("CON_LETRAS", "SIN_LETRAS"):
-        raise ValueError("tipo_archivo debe ser 'CON_LETRAS' o 'SIN_LETRAS'.")
-    if orientacion_defecto not in ORIENTACIONES:
-        raise ValueError("La orientación por defecto debe ser 'N->A' o 'A->N'.")
 
+    No recibe ninguna configuración: la orientación de cada celda se deduce sola.
+    Devuelve estadísticas, una vista previa y la lista de filas que conviene revisar."""
     sheet = wb.active
     pos = localizar_columna_nombres(sheet)
     if pos is None:
@@ -492,37 +702,42 @@ def procesar_libro(wb, tipo_archivo, orientacion_defecto):
             max_col += N_NUEVAS
         sheet.merge_cells(start_row=min_row, start_column=min_col, end_row=max_row, end_column=max_col)
 
-    # 6. Datos fila por fila (la orientación se evalúa celda por celda)
-    contador = 0
-    conteo = {"A": 0, "B": 0, "DEFECTO": 0}
-    vista_previa = []
+    # 6. Datos: primero se leen todas las celdas (el motor aprende del archivo completo) y luego se escribe
+    filas = []
     for r in range(fila_header + 1, sheet.max_row + 1):
         if r in filas_omitir:
             continue
-        celda_nombre = sheet.cell(row=r, column=col_nombres)
-        val = celda_nombre.value
+        val = sheet.cell(row=r, column=col_nombres).value
         if val is None or not str(val).strip():
             continue
         if isinstance(val, str) and val.startswith("="):
             continue                          # fórmulas: no se tocan
+        filas.append((r, val))
 
-        pa, sa, pn, sn, origen = analizar_nombre(val, tipo_archivo, orientacion_defecto)
-        conteo[origen] += 1
+    resultados = resolver_lista([str(v) for _, v in filas])
 
-        for idx, txt in enumerate([pa, sa, pn, sn]):
+    conteo = {"A": 0, "B": 0, "AUTO": 0}
+    vista_previa, por_revisar = [], []
+    for (r, val), res in zip(filas, resultados):
+        conteo[res.origen] += 1
+        celda_nombre = sheet.cell(row=r, column=col_nombres)
+        for idx, txt in enumerate([res.p_ape, res.s_ape, res.p_nom, res.s_nom]):
             celda = sheet.cell(row=r, column=insert_idx + idx)
             celda.value = txt
             copiar_estilo_seguro(celda_nombre, celda)
 
+        fila_resumen = {
+            "Fila": r,
+            "Original": str(val),
+            "PRIMER APELLIDO": res.p_ape, "SEGUNDO APELLIDO": res.s_ape,
+            "PRIMER NOMBRE": res.p_nom, "SEGUNDO NOMBRE": res.s_nom,
+        }
         if len(vista_previa) < 10:
-            vista_previa.append({
-                "Original": str(val),
-                "PRIMER APELLIDO": pa, "SEGUNDO APELLIDO": sa,
-                "PRIMER NOMBRE": pn, "SEGUNDO NOMBRE": sn,
-            })
-        contador += 1
+            vista_previa.append(fila_resumen)
+        if res.revisar:
+            por_revisar.append({**fila_resumen, "Criterio": res.motivo})
 
-    return {"registros": contador, "conteo": conteo, "vista_previa": vista_previa}
+    return {"registros": len(filas), "conteo": conteo, "vista_previa": vista_previa, "revisar": por_revisar}
 
 
 # =============================================================================
@@ -709,8 +924,6 @@ html, body, [class*="css"], .stApp {
 .paso .sub { font-size: .85rem; color: var(--gris); font-weight: 400; }
 .pregunta { margin: 1.3rem 0 .55rem 0; font-size: .9rem; font-weight: 600; color: var(--gris); }
 
-/*__RADIOS__*/
-
 /* Zona de carga de archivo */
 [data-testid="stFileUploader"] section {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -853,104 +1066,9 @@ html, body, [class*="css"], .stApp {
     .hero h1 { font-size: 2rem; }
     .hero .logo { width: 44px; height: 44px; }
     .stats { grid-template-columns: 1fr; }
-    div[role="radiogroup"] { grid-template-columns: 1fr; }
-    div[role="radiogroup"] > label { min-height: 0; }
 }
 </style>
 """
-
-_PLANTILLA_RADIO = """/* Tarjetas seleccionables (st.radio): __K__ */
-.st-key-__K__ div[role="radiogroup"] {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: .9rem;
-}
-.st-key-__K__ div[role="radiogroup"] > label {
-    position: relative;
-    display: flex; flex-direction: column; align-items: flex-start;
-    margin: 0 !important;
-    min-height: 120px;
-    padding: 1.15rem 1.2rem 1.1rem 1.2rem !important;
-    background: var(--fondo-card);
-    border: 1.5px solid var(--borde);
-    border-radius: 18px;
-    cursor: pointer;
-    transition: all .18s ease;
-    box-shadow: 0 10px 24px -18px var(--sombra);
-    overflow: hidden;
-}
-/* ocultar el circulito nativo del radio */
-.st-key-__K__ div[role="radiogroup"] > label > *:first-child { display: none !important; }
-.st-key-__K__ div[role="radiogroup"] > label input { position: absolute; opacity: 0; pointer-events: none; }
-
-/* insignia de cada tarjeta */
-.st-key-__K__ div[role="radiogroup"] > label::before {
-    display: inline-block;
-    margin-bottom: .75rem;
-    padding: .28rem .65rem;
-    border-radius: 999px;
-    font-size: .74rem; font-weight: 700; letter-spacing: .04em;
-    color: var(--acento-texto);
-    background: rgba(59,130,246,.12);
-    border: 1px solid rgba(59,130,246,.28);
-}
-.st-key-__K__ div[role="radiogroup"] > label:nth-of-type(1)::before { content: "__B1__"; }
-.st-key-__K__ div[role="radiogroup"] > label:nth-of-type(2)::before { content: "__B2__"; }
-
-/* título y descripción */
-.st-key-__K__ div[role="radiogroup"] > label p { font-size: 1.02rem; font-weight: 700; color: var(--tinta); margin: 0; }
-.st-key-__K__ div[role="radiogroup"] > label p::after {
-    display: block; margin-top: .35rem;
-    font-size: .82rem; font-weight: 400; line-height: 1.45; color: var(--gris);
-}
-.st-key-__K__ div[role="radiogroup"] > label:nth-of-type(1) p::after { content: "__D1__"; }
-.st-key-__K__ div[role="radiogroup"] > label:nth-of-type(2) p::after { content: "__D2__"; }
-
-/* marca de selección */
-.st-key-__K__ div[role="radiogroup"] > label::after {
-    content: "";
-    position: absolute; top: 14px; right: 14px;
-    width: 22px; height: 22px; border-radius: 50%;
-    border: 1.5px solid var(--borde);
-    background: transparent;
-    transition: all .18s ease;
-}
-.st-key-__K__ div[role="radiogroup"] > label:hover {
-    border-color: var(--azul);
-    transform: translateY(-2px);
-    box-shadow: 0 16px 28px -16px rgba(59,130,246,.55);
-}
-.st-key-__K__ div[role="radiogroup"] > label:has(input:checked) {
-    border-color: var(--azul);
-    background: linear-gradient(135deg, rgba(59,130,246,.14), rgba(16,185,129,.12)), var(--fondo-card);
-    box-shadow: 0 0 0 3px rgba(59,130,246,.22), 0 16px 28px -16px rgba(59,130,246,.6);
-}
-.st-key-__K__ div[role="radiogroup"] > label:has(input:checked)::after {
-    content: "✓";
-    display: flex; align-items: center; justify-content: center;
-    color: #fff; font-size: .8rem; font-weight: 800;
-    background: linear-gradient(135deg, var(--azul), var(--verde));
-    border-color: transparent;
-}
-
-"""
-
-
-def _css_radio(clave, b1, b2, d1, d2):
-    return (_PLANTILLA_RADIO.replace("__K__", clave).replace("__B1__", b1).replace("__B2__", b2)
-            .replace("__D1__", d1).replace("__D2__", d2))
-
-
-ESTILOS = ESTILOS.replace(
-    "/*__RADIOS__*/",
-    _css_radio("tipo_archivo", "(A) · (B)", "Sin prefijo",
-               "(A) apellidos primero · (B) nombres primero",
-               "Los nombres no llevan letra al inicio")
-    + _css_radio("orientacion", "Nombres → Apellidos", "Apellidos → Nombres",
-                 "Orden natural. Ej.: Julián Mejía Ospina",
-                 "Ej.: Mejía Ospina Julián"),
-)
-
 
 def paso(numero, titulo, subtitulo=""):
     sub = f'<div class="sub">{subtitulo}</div>' if subtitulo else ""
@@ -995,11 +1113,13 @@ def main():
             <div class="badge">Herramienta para Excel</div>
             <div class="marca">{LOGO_SVG}<h1>{NOMBRE_APP}</h1></div>
             <div class="lema">{LEMA_APP}</div>
-            <p>Divide automáticamente los nombres completos en 4 columnas, manteniendo intactas
+            <p>Divide automáticamente los nombres completos en 4 columnas. Deduce solo, fila por fila,
+            si cada nombre viene como Nombres + Apellidos o Apellidos + Nombres, y mantiene intactas
             las tablas de Excel, los formatos y los filtros.</p>
             <div class="chips">
+                <span class="chip">✔ Entiende (A) y (B) por celda</span>
+                <span class="chip">✔ Deduce el orden sin letras</span>
                 <span class="chip">✔ Conserva tablas y filtros</span>
-                <span class="chip">✔ Respeta formatos</span>
                 <span class="chip">✔ Detecta conectores (DE LA, DEL…)</span>
             </div>
         </div>
@@ -1007,89 +1127,61 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # ---- Paso 1: ¿hay prefijos? + orden estándar (el usuario controla el fallback) ----
-    paso(1, "Tipo de archivo", "Indica cómo vienen los datos en la columna de nombres")
-    tipo_archivo = st.radio(
-        "Formato de la columna de nombres",
-        options=["CON_LETRAS", "SIN_LETRAS"],
-        format_func=lambda x: "Con letras (A) / (B)" if x == "CON_LETRAS" else "Sin letras",
-        label_visibility="collapsed",
-        key="tipo_archivo",
-    )
-
-    if tipo_archivo == "SIN_LETRAS":
-        pregunta = "¿Cuál es la estructura estándar de esta lista?"
-    else:
-        pregunta = "Si alguna fila no trae (A) ni (B), ¿qué orden debe asumir por defecto?"
-    st.markdown(f'<div class="pregunta">{pregunta}</div>', unsafe_allow_html=True)
-
-    # Sin valor inicial: el usuario DEBE elegir. Esta selección alimenta la orientación por defecto.
-    orientacion_defecto = st.radio(
-        "Orden de los nombres",
-        options=list(ORIENTACIONES),
-        index=None,
-        format_func=lambda x: "Nombres primero, luego apellidos" if x == "N->A" else "Apellidos primero, luego nombres",
-        label_visibility="collapsed",
-        key="orientacion",
-    )
-
-    # ---- Paso 2: archivo ----
-    paso(2, "Sube tu archivo", "Formato Excel (.xlsx)")
+    paso(1, "Sube tu archivo", "Formato Excel (.xlsx) · no necesitas indicar nada más")
     archivo_subido = st.file_uploader(
         "Sube tu archivo Excel (.xlsx)", type=["xlsx"], label_visibility="collapsed"
     )
 
-    # ---- Paso 3: resultado ----
     if archivo_subido is not None:
-        paso(3, "Resultado", "Revisa y descarga tu archivo procesado")
-        if orientacion_defecto is None:
-            st.warning("⚠️ Antes de procesar, elige en el paso 1 el orden en que vienen los nombres en tu lista.")
-        else:
-            with st.spinner("Procesando archivo sin errores de estructura..."):
-                try:
-                    wb = openpyxl.load_workbook(archivo_subido)
-                    res = procesar_libro(wb, tipo_archivo, orientacion_defecto)
+        paso(2, "Resultado", "Revisa y descarga tu archivo procesado")
+        with st.spinner("Procesando archivo sin errores de estructura..."):
+            try:
+                wb = openpyxl.load_workbook(archivo_subido)
+                res = procesar_libro(wb)
 
-                    output = io.BytesIO()
-                    wb.save(output)
-                    output.seek(0)
+                output = io.BytesIO()
+                wb.save(output)
+                output.seek(0)
 
-                    if tipo_archivo == "CON_LETRAS":
-                        modo = "(A)/(B)"
-                        c = res["conteo"]
-                        detalle = (f"Filas con (A): {c['A']} · con (B): {c['B']} · "
-                                   f"sin prefijo ({'N → A' if orientacion_defecto == 'N->A' else 'A → N'}): {c['DEFECTO']}")
-                    else:
-                        modo = "N → A" if orientacion_defecto == "N->A" else "A → N"
-                        detalle = "Se separaron los nombres sin dañar filtros ni formatos."
+                c = res["conteo"]
+                n_revisar = len(res["revisar"])
+                detalle = (f"Con (A): {c['A']} · con (B): {c['B']} · "
+                           f"sin letra, deducidas por el programa: {c['AUTO']}")
 
-                    st.markdown(
-                        f"""
-                        <div class="resultado">
-                            <h3>✅ ¡Proceso completado!</h3>
-                            <p>{detalle}</p>
-                            <div class="stats">
-                                <div class="stat"><div class="valor">{res['registros']}</div><div class="etq">Registros</div></div>
-                                <div class="stat"><div class="valor">4</div><div class="etq">Columnas nuevas</div></div>
-                                <div class="stat"><div class="valor">{modo}</div><div class="etq">Modo</div></div>
-                            </div>
+                st.markdown(
+                    f"""
+                    <div class="resultado">
+                        <h3>✅ ¡Proceso completado!</h3>
+                        <p>{detalle}</p>
+                        <div class="stats">
+                            <div class="stat"><div class="valor">{res['registros']}</div><div class="etq">Registros</div></div>
+                            <div class="stat"><div class="valor">4</div><div class="etq">Columnas nuevas</div></div>
+                            <div class="stat"><div class="valor">{n_revisar}</div><div class="etq">Por revisar</div></div>
                         </div>
-                        """,
-                        unsafe_allow_html=True,
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if n_revisar:
+                    st.warning(
+                        f"{n_revisar} fila(s) tenían poca evidencia (palabras que no están en los "
+                        "diccionarios). El programa las separó con su mejor criterio; conviene mirarlas."
                     )
-                    if res["vista_previa"]:
-                        with st.expander("Vista previa de las primeras filas"):
-                            st.dataframe(res["vista_previa"], hide_index=True)
-                    st.download_button(
-                        label="📥 Descargar Archivo Procesado",
-                        data=output,
-                        file_name=f"OK_{archivo_subido.name}",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    )
-                except ColumnaNoEncontrada:
-                    st.error("❌ No se encontró una columna válida de Nombres.")
-                except Exception as e:
-                    st.error(f"Error procesando el archivo: {e}")
+                    with st.expander("Filas para revisar"):
+                        st.dataframe(res["revisar"], hide_index=True)
+                if res["vista_previa"]:
+                    with st.expander("Vista previa de las primeras filas"):
+                        st.dataframe(res["vista_previa"], hide_index=True)
+                st.download_button(
+                    label="📥 Descargar Archivo Procesado",
+                    data=output,
+                    file_name=f"OK_{archivo_subido.name}",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            except ColumnaNoEncontrada:
+                st.error("❌ No se encontró una columna válida de Nombres.")
+            except Exception as e:
+                st.error(f"Error procesando el archivo: {e}")
 
     st.markdown(f'<div class="pie">{NOMBRE_APP} · Tus archivos se procesan en memoria y no se almacenan</div>', unsafe_allow_html=True)
 
