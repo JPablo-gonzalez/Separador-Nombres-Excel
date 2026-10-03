@@ -47,7 +47,7 @@ def agrupar_conectores(tokens):
             i += 1
     return resultado
 
-def analizar_nombre(texto, tipo_archivo):
+def analizar_nombre(texto, tipo_archivo, orientacion_sin_letras="A->N"):
     texto = str(texto).strip()
     orientacion = "A->N" 
     
@@ -59,7 +59,8 @@ def analizar_nombre(texto, tipo_archivo):
             orientacion = "A->N" 
             texto = re.sub(r"^\(A\)\s*", "", texto, flags=re.IGNORECASE).strip()
     else:
-        orientacion = "A->N"
+        # SIN_LETRAS: la orientacion la elige el usuario ("N->A" o "A->N")
+        orientacion = orientacion_sin_letras if orientacion_sin_letras in ("N->A", "A->N") else "A->N"
         
     tokens = agrupar_conectores(texto.split())
     p_ape, s_ape, p_nom, s_nom = "", "", "", ""
@@ -88,7 +89,8 @@ def analizar_nombre(texto, tipo_archivo):
             elif t2.upper() in NOMBRES_COMUNES:
                 p_nom, s_nom, p_ape = t1, t2, t3
             else:
-                p_nom, s_nom, p_ape = t1, t2, t3
+                # centro desconocido: estructura mas frecuente en espanol (1 nombre + 2 apellidos)
+                p_nom, p_ape, s_ape = t1, t2, t3
                 
     elif len(tokens) >= 4:
         if orientacion == "A->N":
@@ -445,80 +447,9 @@ html, body, [class*="css"], .stApp {
 }
 .paso .titulo { font-size: 1.05rem; font-weight: 700; color: var(--tinta); }
 .paso .sub { font-size: .85rem; color: var(--gris); font-weight: 400; }
+.pregunta { margin: 1.3rem 0 .55rem 0; font-size: .9rem; font-weight: 600; color: var(--gris); }
 
-/* Tipo de archivo: tarjetas seleccionables (sigue siendo un st.radio) */
-div[role="radiogroup"] {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: .9rem;
-}
-div[role="radiogroup"] > label {
-    position: relative;
-    display: flex; flex-direction: column; align-items: flex-start;
-    margin: 0 !important;
-    min-height: 120px;
-    padding: 1.15rem 1.2rem 1.1rem 1.2rem !important;
-    background: var(--fondo-card);
-    border: 1.5px solid var(--borde);
-    border-radius: 18px;
-    cursor: pointer;
-    transition: all .18s ease;
-    box-shadow: 0 10px 24px -18px var(--sombra);
-    overflow: hidden;
-}
-/* ocultar el circulito nativo del radio */
-div[role="radiogroup"] > label > *:first-child { display: none !important; }
-div[role="radiogroup"] > label input { position: absolute; opacity: 0; pointer-events: none; }
-
-/* insignia de cada tarjeta */
-div[role="radiogroup"] > label::before {
-    display: inline-block;
-    margin-bottom: .75rem;
-    padding: .28rem .65rem;
-    border-radius: 999px;
-    font-size: .74rem; font-weight: 700; letter-spacing: .04em;
-    color: var(--acento-texto);
-    background: rgba(59,130,246,.12);
-    border: 1px solid rgba(59,130,246,.28);
-}
-div[role="radiogroup"] > label:nth-of-type(1)::before { content: "(A) · (B)"; }
-div[role="radiogroup"] > label:nth-of-type(2)::before { content: "Sin prefijo"; }
-
-/* título y descripción */
-div[role="radiogroup"] > label p { font-size: 1.02rem; font-weight: 700; color: var(--tinta); margin: 0; }
-div[role="radiogroup"] > label p::after {
-    display: block; margin-top: .35rem;
-    font-size: .82rem; font-weight: 400; line-height: 1.45; color: var(--gris);
-}
-div[role="radiogroup"] > label:nth-of-type(1) p::after { content: "(A) apellidos primero · (B) nombres primero"; }
-div[role="radiogroup"] > label:nth-of-type(2) p::after { content: "Los nombres no llevan letra: se leen apellidos primero"; }
-
-/* marca de selección */
-div[role="radiogroup"] > label::after {
-    content: "";
-    position: absolute; top: 14px; right: 14px;
-    width: 22px; height: 22px; border-radius: 50%;
-    border: 1.5px solid var(--borde);
-    background: transparent;
-    transition: all .18s ease;
-}
-div[role="radiogroup"] > label:hover {
-    border-color: var(--azul);
-    transform: translateY(-2px);
-    box-shadow: 0 16px 28px -16px rgba(59,130,246,.55);
-}
-div[role="radiogroup"] > label:has(input:checked) {
-    border-color: var(--azul);
-    background: linear-gradient(135deg, rgba(59,130,246,.14), rgba(16,185,129,.12)), var(--fondo-card);
-    box-shadow: 0 0 0 3px rgba(59,130,246,.22), 0 16px 28px -16px rgba(59,130,246,.6);
-}
-div[role="radiogroup"] > label:has(input:checked)::after {
-    content: "✓";
-    display: flex; align-items: center; justify-content: center;
-    color: #fff; font-size: .8rem; font-weight: 800;
-    background: linear-gradient(135deg, var(--azul), var(--verde));
-    border-color: transparent;
-}
+/*__RADIOS__*/
 
 /* Zona de carga de archivo */
 [data-testid="stFileUploader"] section {
@@ -668,6 +599,96 @@ div[role="radiogroup"] > label:has(input:checked)::after {
 </style>
 """
 
+_PLANTILLA_RADIO = """/* Tarjetas seleccionables (st.radio): __K__ */
+.st-key-__K__ div[role="radiogroup"] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: .9rem;
+}
+.st-key-__K__ div[role="radiogroup"] > label {
+    position: relative;
+    display: flex; flex-direction: column; align-items: flex-start;
+    margin: 0 !important;
+    min-height: 120px;
+    padding: 1.15rem 1.2rem 1.1rem 1.2rem !important;
+    background: var(--fondo-card);
+    border: 1.5px solid var(--borde);
+    border-radius: 18px;
+    cursor: pointer;
+    transition: all .18s ease;
+    box-shadow: 0 10px 24px -18px var(--sombra);
+    overflow: hidden;
+}
+/* ocultar el circulito nativo del radio */
+.st-key-__K__ div[role="radiogroup"] > label > *:first-child { display: none !important; }
+.st-key-__K__ div[role="radiogroup"] > label input { position: absolute; opacity: 0; pointer-events: none; }
+
+/* insignia de cada tarjeta */
+.st-key-__K__ div[role="radiogroup"] > label::before {
+    display: inline-block;
+    margin-bottom: .75rem;
+    padding: .28rem .65rem;
+    border-radius: 999px;
+    font-size: .74rem; font-weight: 700; letter-spacing: .04em;
+    color: var(--acento-texto);
+    background: rgba(59,130,246,.12);
+    border: 1px solid rgba(59,130,246,.28);
+}
+.st-key-__K__ div[role="radiogroup"] > label:nth-of-type(1)::before { content: "__B1__"; }
+.st-key-__K__ div[role="radiogroup"] > label:nth-of-type(2)::before { content: "__B2__"; }
+
+/* título y descripción */
+.st-key-__K__ div[role="radiogroup"] > label p { font-size: 1.02rem; font-weight: 700; color: var(--tinta); margin: 0; }
+.st-key-__K__ div[role="radiogroup"] > label p::after {
+    display: block; margin-top: .35rem;
+    font-size: .82rem; font-weight: 400; line-height: 1.45; color: var(--gris);
+}
+.st-key-__K__ div[role="radiogroup"] > label:nth-of-type(1) p::after { content: "__D1__"; }
+.st-key-__K__ div[role="radiogroup"] > label:nth-of-type(2) p::after { content: "__D2__"; }
+
+/* marca de selección */
+.st-key-__K__ div[role="radiogroup"] > label::after {
+    content: "";
+    position: absolute; top: 14px; right: 14px;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1.5px solid var(--borde);
+    background: transparent;
+    transition: all .18s ease;
+}
+.st-key-__K__ div[role="radiogroup"] > label:hover {
+    border-color: var(--azul);
+    transform: translateY(-2px);
+    box-shadow: 0 16px 28px -16px rgba(59,130,246,.55);
+}
+.st-key-__K__ div[role="radiogroup"] > label:has(input:checked) {
+    border-color: var(--azul);
+    background: linear-gradient(135deg, rgba(59,130,246,.14), rgba(16,185,129,.12)), var(--fondo-card);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.22), 0 16px 28px -16px rgba(59,130,246,.6);
+}
+.st-key-__K__ div[role="radiogroup"] > label:has(input:checked)::after {
+    content: "✓";
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: .8rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--azul), var(--verde));
+    border-color: transparent;
+}
+
+"""
+
+def _css_radio(clave, b1, b2, d1, d2):
+    return (_PLANTILLA_RADIO.replace("__K__", clave).replace("__B1__", b1).replace("__B2__", b2)
+            .replace("__D1__", d1).replace("__D2__", d2))
+
+ESTILOS = ESTILOS.replace(
+    "/*__RADIOS__*/",
+    _css_radio("tipo_archivo", "(A) · (B)", "Sin prefijo",
+               "(A) apellidos primero · (B) nombres primero",
+               "Los nombres no llevan letra al inicio")
+    + _css_radio("orientacion", "Nombres → Apellidos", "Apellidos → Nombres",
+                 "Orden natural. Ej.: Juan Pablo Pérez Gómez",
+                 "Ej.: Pérez Gómez Juan Pablo"),
+)
+
 def paso(numero, titulo, subtitulo=""):
     sub = f'<div class="sub">{subtitulo}</div>' if subtitulo else ""
     st.markdown(
@@ -721,7 +742,20 @@ tipo_archivo = st.radio(
     options=["CON_LETRAS", "SIN_LETRAS"],
     format_func=lambda x: "Con letras (A) / (B)" if x == "CON_LETRAS" else "Sin letras",
     label_visibility="collapsed",
+    key="tipo_archivo",
 )
+
+# Con letras, el prefijo (A)/(B) dicta el orden fila por fila; sin letras lo decide el usuario.
+orientacion_sin_letras = "A->N"
+if tipo_archivo == "SIN_LETRAS":
+    st.markdown('<div class="pregunta">¿En qué orden vienen los nombres en tu archivo?</div>', unsafe_allow_html=True)
+    orientacion_sin_letras = st.radio(
+        "Orden de los nombres",
+        options=["N->A", "A->N"],
+        format_func=lambda x: "Nombres primero, luego apellidos" if x == "N->A" else "Apellidos primero, luego nombres",
+        label_visibility="collapsed",
+        key="orientacion",
+    )
 
 paso(2, "Sube tu archivo", "Formato Excel (.xlsx)")
 archivo_subido = st.file_uploader(
@@ -835,7 +869,7 @@ if archivo_subido is not None:
                     val = sheet.cell(row=r, column=col_nombres).value
                     if not val: continue
                     
-                    pa, sa, pn, sn = analizar_nombre(val, tipo_archivo)
+                    pa, sa, pn, sn = analizar_nombre(val, tipo_archivo, orientacion_sin_letras)
                     
                     for idx, txt in enumerate([pa, sa, pn, sn]):
                         celda = sheet.cell(row=r, column=insert_idx + idx)
@@ -856,7 +890,7 @@ if archivo_subido is not None:
                         <div class="stats">
                             <div class="stat"><div class="valor">{contador}</div><div class="etq">Registros</div></div>
                             <div class="stat"><div class="valor">4</div><div class="etq">Columnas nuevas</div></div>
-                            <div class="stat"><div class="valor">{"(A)/(B)" if tipo_archivo == "CON_LETRAS" else "Normal"}</div><div class="etq">Modo</div></div>
+                            <div class="stat"><div class="valor">{"(A)/(B)" if tipo_archivo == "CON_LETRAS" else ("N → A" if orientacion_sin_letras == "N->A" else "A → N")}</div><div class="etq">Modo</div></div>
                         </div>
                     </div>
                     """,
