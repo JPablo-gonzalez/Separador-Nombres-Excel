@@ -110,6 +110,161 @@ def copiar_estilo_seguro(origen, destino):
         if origen.alignment: destino.alignment = copy(origen.alignment)
 
 
+
+# --- 1b. AJUSTE DE REFERENCIAS AL INSERTAR COLUMNAS ---
+# openpyxl mueve las celdas al insertar columnas, pero NO actualiza las referencias que
+# apuntan a ellas. Estas funciones replican lo que hace Excel: toda referencia a una
+# columna >= insert_idx se desplaza n columnas hacia la derecha.
+from openpyxl.formula import Tokenizer
+from openpyxl.formula.tokenizer import Token
+from openpyxl.utils import column_index_from_string
+from openpyxl.worksheet.cell_range import MultiCellRange
+from openpyxl.worksheet.formula import ArrayFormula
+from openpyxl.formatting.formatting import ConditionalFormattingList
+
+_RE_CELDA = re.compile(r"^(\$?)([A-Za-z]{1,3})(\$?)(\d+)$")
+_RE_COL = re.compile(r"^(\$?)([A-Za-z]{1,3})$")
+
+def _desplazar_col(letras, ins, n):
+    c = column_index_from_string(letras.upper())
+    return get_column_letter(c + n) if c >= ins else letras
+
+def _desplazar_operando(op, titulo, ins, n, hoja_propia):
+    if "!" in op:
+        pref, ref = op.rsplit("!", 1)
+        if pref.strip("'").replace("''", "'") != titulo:
+            return op                      # apunta a otra hoja
+    else:
+        pref, ref = None, op
+        if not hoja_propia:
+            return op                      # sin hoja explicita, pero la formula es de otra hoja
+    if "[" in ref:
+        return op                          # referencias estructuradas de tabla (por nombre)
+    partes = ref.split(":")
+    if len(partes) > 2:
+        return op
+    nuevas = []
+    for p in partes:
+        m = _RE_CELDA.match(p)
+        if m:
+            nuevas.append(f"{m.group(1)}{_desplazar_col(m.group(2), ins, n)}{m.group(3)}{m.group(4)}")
+            continue
+        m = _RE_COL.match(p)
+        if m and len(partes) == 2:         # columnas completas (A:C); solas podrian ser un nombre
+            nuevas.append(f"{m.group(1)}{_desplazar_col(m.group(2), ins, n)}")
+            continue
+        nuevas.append(p)
+    ref_nueva = ":".join(nuevas)
+    return f"{pref}!{ref_nueva}" if pref is not None else ref_nueva
+
+def _desplazar_formula(texto, titulo, ins, n, hoja_propia):
+    """texto incluye el '=' inicial. Si algo falla, devuelve el texto original."""
+    try:
+        tok = Tokenizer(texto)
+        cambio = False
+        for t in tok.items:
+            if t.type == Token.OPERAND and t.subtype == Token.RANGE:
+                nuevo = _desplazar_operando(t.value, titulo, ins, n, hoja_propia)
+                if nuevo != t.value:
+                    t.value = nuevo
+                    cambio = True
+        return tok.render() if cambio else texto
+    except Exception:
+        return texto
+
+def _desplazar_rangos(texto, titulo, ins, n):
+    """Lista de rangos separados por espacios (sqref) de la hoja propia."""
+    return " ".join(_desplazar_operando(r, titulo, ins, n, True) for r in str(texto).split())
+
+def desplazar_referencias(wb, sheet, ins, n):
+    titulo = sheet.title
+
+    # 1) Formulas de todas las hojas (una formula de otra hoja puede apuntar a esta)
+    for ws in wb.worksheets:
+        propia = ws is sheet
+        for fila in ws.iter_rows():
+            for c in fila:
+                v = c.value
+                if propia and c.hyperlink:
+                    c.hyperlink.ref = c.coordinate      # el enlace viaja con su celda
+                if isinstance(v, str) and v.startswith("="):
+                    c.value = _desplazar_formula(v, titulo, ins, n, propia)
+                elif isinstance(v, ArrayFormula):
+                    v.text = _desplazar_formula(v.text, titulo, ins, n, propia)
+                    if propia and v.ref:
+                        v.ref = _desplazar_rangos(v.ref, titulo, ins, n)
+
+    # 2) Formato condicional
+    nuevo_cf = ConditionalFormattingList()
+    for cf in sheet.conditional_formatting:
+        rango = _desplazar_rangos(cf.sqref, titulo, ins, n)
+        for regla in cf.rules:
+            regla.formula = [_desplazar_formula("=" + f, titulo, ins, n, True)[1:] for f in regla.formula]
+            nuevo_cf.add(rango, regla)
+    sheet.conditional_formatting = nuevo_cf
+
+    # 3) Validaciones de datos
+    for dv in sheet.data_validations.dataValidation:
+        dv.sqref = MultiCellRange(_desplazar_rangos(dv.sqref, titulo, ins, n))
+        for attr in ("formula1", "formula2"):
+            f = getattr(dv, attr)
+            if f and not f.startswith('"'):
+                setattr(dv, attr, _desplazar_formula("=" + f, titulo, ins, n, True)[1:])
+
+    # 4) Nombres definidos (del libro y de la hoja)
+    for dn in wb.defined_names.values():
+        if dn.attr_text:
+            dn.attr_text = _desplazar_formula("=" + dn.attr_text, titulo, ins, n, False)[1:]
+    for ws in wb.worksheets:
+        for dn in ws.defined_names.values():
+            if dn.attr_text:
+                dn.attr_text = _desplazar_formula("=" + dn.attr_text, titulo, ins, n, ws is sheet)[1:]
+
+    # 5) Area de impresion, columnas repetidas y autofiltro de la hoja
+    try:
+        if sheet.print_area:
+            partes = []
+            for r in str(sheet.print_area).split(","):
+                r = r.split("!")[-1].replace("$", "")
+                partes.append(_desplazar_operando(r, titulo, ins, n, True))
+            sheet.print_area = partes
+        if sheet.print_title_cols:
+            sheet.print_title_cols = _desplazar_operando(sheet.print_title_cols.split("!")[-1].replace("$", ""), titulo, ins, n, True)
+    except Exception:
+        pass
+    if sheet.auto_filter and sheet.auto_filter.ref:
+        sheet.auto_filter.ref = _desplazar_rangos(sheet.auto_filter.ref, titulo, ins, n)
+
+    # 6) Anchos de columna (las columnas a la derecha conservan su ancho original)
+    dims = []
+    for k, d in list(sheet.column_dimensions.items()):
+        mn = d.min or column_index_from_string(k)
+        mx = d.max or mn
+        dims.append((d, mn, mx))
+    sheet.column_dimensions.clear()
+    for d, mn, mx in dims:
+        trozos = []
+        if mx < ins:
+            trozos.append((mn, mx))
+        elif mn >= ins:
+            trozos.append((mn + n, mx + n))
+        else:                              # el rango atraviesa el punto de insercion: se parte en dos
+            trozos.append((mn, ins - 1))
+            trozos.append((ins + n, mx + n))
+        for a, b in trozos:
+            nd = copy(d)
+            letra = get_column_letter(a)
+            nd.index, nd.min, nd.max = letra, a, b
+            sheet.column_dimensions[letra] = nd
+
+    # 7) Paneles inmovilizados que quedan a la derecha del punto de insercion
+    fp = sheet.freeze_panes
+    if fp:
+        m = _RE_CELDA.match(fp)
+        if m and column_index_from_string(m.group(2)) > ins:
+            sheet.freeze_panes = f"{get_column_letter(column_index_from_string(m.group(2)) + n)}{m.group(4)}"
+
+
 # --- 2. ESTILOS (solo estética) ---
 import os
 
@@ -604,6 +759,7 @@ if archivo_subido is not None:
                 
                 # 2. Insertar las 4 columnas
                 sheet.insert_cols(insert_idx, 4)
+                desplazar_referencias(wb, sheet, insert_idx, 4)
                 
                 # 3. Poner encabezados
                 headers_nuevos = ["PRIMER APELLIDO", "SEGUNDO APELLIDO", "PRIMER NOMBRE", "SEGUNDO NOMBRE"]
