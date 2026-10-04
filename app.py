@@ -8,12 +8,33 @@ import gc
 
 import streamlit as st
 
+from edades import EDAD_LIMITE_DEFECTO, contar_menores, edades_validas, fecha_hoy
 from excel_engine import LIMITE_SUBIDA_MB, ArchivoNoSoportado, ColumnaNoEncontrada, procesar_xlsx
-from styles import configurar_pagina, encabezado, paso, pie, selector_tema, tarjeta_resultado
+from styles import configurar_pagina, encabezado, paso, pie, selector_tema, tarjeta_edades, tarjeta_resultado
 
 # =============================================================================
 # INTERFAZ WEB STREAMLIT (flujo principal)
 # =============================================================================
+
+
+@st.fragment
+def consulta_edades(edades, total, sin_fecha, no_validas, hoy):
+    # Fragmento: cambiar la edad límite solo recalcula el conteo; no vuelve a procesar el archivo.
+    # Recibe solo números (edades), no nombres ni fechas.
+    limite = st.number_input("¿Menores de cuántos años quieres contar?", min_value=1, max_value=120,
+                             value=EDAD_LIMITE_DEFECTO, step=1, key="edad_limite")
+    tarjeta_edades(contar_menores(edades, limite), total, limite, sin_fecha, no_validas, hoy)
+
+
+def resumen_edades(res):
+    """Conteo de menores de edad en pantalla. El Excel de salida no cambia."""
+    fechas = res["fechas_nacimiento"]
+    if fechas is None:
+        st.info("No se encontró una columna de FECHA DE NACIMIENTO, así que no se pueden contar los menores de edad.")
+        return
+    hoy = fecha_hoy()
+    edades, sin_fecha, no_validas = edades_validas(fechas["valores"], hoy, fechas["fecha1904"])
+    consulta_edades(edades, res["registros"], sin_fecha, no_validas, hoy)
 
 
 def main():
@@ -41,6 +62,7 @@ def main():
 
                     n_revisar = len(res["revisar"])
                     tarjeta_resultado(res)
+                    resumen_edades(res)
                     for aviso in res["advertencias"]:
                         st.info(aviso)
                     if n_revisar:
