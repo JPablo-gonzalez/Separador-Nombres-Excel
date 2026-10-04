@@ -11,3 +11,7 @@ toolbarMode = "minimal"
 
 [server]
 maxUploadSize = 30
+
+[browser]
+# No enviar estadísticas de uso de la app a Streamlit (telemetría del navegador).
+gatherUsageStats = false

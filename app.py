@@ -4,6 +4,8 @@ Contiene solo el flujo principal: recibe el archivo, invoca el motor de Excel y 
 resultado con los componentes visuales de styles.py.
 """
 
+import gc
+
 import streamlit as st
 
 from excel_engine import LIMITE_SUBIDA_MB, ArchivoNoSoportado, ColumnaNoEncontrada, procesar_xlsx
@@ -12,12 +14,6 @@ from styles import configurar_pagina, encabezado, paso, pie, selector_tema, tarj
 # =============================================================================
 # INTERFAZ WEB STREAMLIT (flujo principal)
 # =============================================================================
-
-
-@st.cache_data(max_entries=2, ttl=900, show_spinner=False)
-def _procesar_cacheado(datos):
-    """Pulsar "Descargar" vuelve a ejecutar el script: el resultado se guarda para no reprocesar el archivo."""
-    return procesar_xlsx(datos)
 
 
 def main():
@@ -35,9 +31,13 @@ def main():
         if archivo_subido.size > LIMITE_SUBIDA_MB * 1024 * 1024:
             st.error(f"❌ El archivo pesa más de {LIMITE_SUBIDA_MB} MB. Divídelo en partes más pequeñas e inténtalo de nuevo.")
         else:
+            # Privacidad: el resultado no se guarda en ninguna caché (ni de Streamlit ni propia). Vive solo
+            # durante esta ejecución y en el botón de descarga de esta sesión; desaparece al quitar el archivo
+            # o al cerrar la pestaña.
+            salida = res = None
             with st.spinner("Procesando el archivo sin alterar su formato..."):
                 try:
-                    salida, res = _procesar_cacheado(archivo_subido.getvalue())
+                    salida, res = procesar_xlsx(archivo_subido.getvalue())
 
                     n_revisar = len(res["revisar"])
                     tarjeta_resultado(res)
@@ -58,11 +58,18 @@ def main():
                         data=salida,
                         file_name=f"OK_{archivo_subido.name}",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        on_click="ignore",  # descargar no vuelve a ejecutar el script ni a procesar el archivo
                     )
                 except (ColumnaNoEncontrada, ArchivoNoSoportado) as e:
-                    st.error(f"❌ {e}")
+                    st.error(f"❌ {e}")  # mensajes fijos, sin datos del archivo
                 except Exception as e:
-                    st.error(f"Error procesando el archivo: {e}")
+                    # El texto de una excepción puede incluir contenido del archivo (celdas, fórmulas, rutas
+                    # internas): solo se muestra su tipo, y no se registra en ningún log.
+                    st.error(f"No se pudo procesar el archivo ({type(e).__name__}). Revisa que sea un .xlsx válido.")
+                finally:
+                    # Suelta las referencias locales a los datos para que Python libere esa memoria ya.
+                    del salida, res
+                    gc.collect()
 
     pie()
 

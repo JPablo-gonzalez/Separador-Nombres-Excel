@@ -68,7 +68,8 @@ CSS_TEMA_CLARO = f"<style>:root {{ {TEMA_CLARO} }}</style>"
 
 ESTILOS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Sin fuentes externas (Google Fonts): cargarlas enviaba la IP del usuario a un tercero en cada visita.
+   Se usa Inter si está instalada y, si no, la fuente del sistema. */
 
 :root {
     --verde: #10b981;
@@ -78,7 +79,7 @@ ESTILOS = """
 }
 
 html, body, [class*="css"], .stApp {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* Fondo general */
@@ -422,4 +423,4 @@ def tarjeta_resultado(res):
 
 def pie():
     """Pie de página."""
-    st.markdown(f'<div class="pie">{NOMBRE_APP} · Tus archivos se procesan en memoria y no se almacenan</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="pie">{NOMBRE_APP} · Tus archivos se procesan en memoria, no se guardan en disco y se descartan al quitarlos o cerrar la pestaña</div>', unsafe_allow_html=True)

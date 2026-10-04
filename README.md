@@ -23,10 +23,26 @@ Aplicación publicada: <https://separador-nombres-excel.streamlit.app/>
 | `parser.py` | Motor semántico de nombres: diccionarios de nombres y apellidos, conectores, agrupación de conectores y el motor de decisión (`resolver_lista` y `analizar_nombre`). |
 | `excel_engine.py` | Motor de Excel: búsqueda del encabezado, inserción de las 4 columnas, desplazamiento de referencias y fórmulas, celdas combinadas, tablas, filtros, dibujos e imágenes (`procesar_xlsx`). |
 | `requirements.txt` | Dependencias de Python. |
-| `.streamlit/config.toml` | Tema base y límite de subida de Streamlit. |
+| `.streamlit/config.toml` | Tema base, límite de subida y telemetría de Streamlit desactivada. |
 | `favicon.png` | Icono de la pestaña del navegador. |
 
 Las dependencias van en un solo sentido: `app.py` usa `styles.py` y `excel_engine.py`, y `excel_engine.py` usa `parser.py`.
+
+## Privacidad de los archivos
+
+Qué hace el programa con los datos (revisado en el código, no solo prometido):
+
+- **Sin disco:** el `.xlsx` se recibe y se procesa en memoria (`io.BytesIO`). El código no crea archivos, ni siquiera temporales, y Streamlit guarda los archivos subidos en memoria, no en disco.
+- **Sin cachés:** no se usa `st.cache_data` ni `st.cache_resource`. El resultado existe solo mientras se muestra en la sesión de quien lo subió: se descarta al quitar el archivo con la ✕, al subir otro o al cerrar la pestaña (Streamlit borra la sesión a partir de unos 2 minutos después de desconectarse).
+- **Sin servicios externos:** no hay peticiones HTTP, APIs, bases de datos ni analítica en el código. La telemetría de Streamlit está desactivada (`gatherUsageStats = false`) y la página no carga fuentes de Google.
+- **Sin logs con datos:** el programa no imprime nada. Los errores inesperados muestran solo el tipo de error, nunca el contenido de una celda.
+
+Límites que no dependen del código:
+
+- **En Streamlit Community Cloud el archivo sí sale del computador.** Viaja cifrado (HTTPS) hasta el servidor de Streamlit, se procesa en la memoria de ese servidor y el resultado vuelve al navegador. El código no lo guarda, pero la infraestructura (proxies, registros de acceso, volcados de memoria o swap del proveedor) no está bajo nuestro control.
+- **Python no puede borrar la RAM de forma segura:** al soltar un dato, la memoria se marca libre y se reutiliza, pero sus bytes no se sobrescriben al instante. Lo que se garantiza es que el programa no conserva referencias a los datos.
+
+Para que el archivo no salga del computador, ejecuta la aplicación localmente (sección siguiente).
 
 ## Instalación y ejecución local
 
@@ -36,10 +52,10 @@ Requiere Python 3.10 o superior.
 git clone https://github.com/JPablo-gonzalez/Separador-Nombres-Excel.git
 cd Separador-Nombres-Excel
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run app.py --server.address localhost
 ```
 
-La aplicación se abre en <http://localhost:8501>.
+La aplicación se abre en <http://localhost:8501>. `--server.address localhost` hace que solo tu computador pueda abrirla; sin esa opción, Streamlit también acepta conexiones de otros equipos de tu red. En modo local los archivos no salen de tu equipo: la única conexión es la del navegador con el propio programa.
 
 ## Despliegue en Streamlit Community Cloud
 

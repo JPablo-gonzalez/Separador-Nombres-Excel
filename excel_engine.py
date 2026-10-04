@@ -844,11 +844,19 @@ def procesar_xlsx(datos):
     """Separa los nombres de un .xlsx editando su XML. Devuelve (bytes_del_nuevo_xlsx, estadísticas).
 
     No carga el libro en memoria: solo recorre las filas que existen y copia byte a byte todo lo que
-    no cambia (imágenes, logos, tema, estilos...)."""
+    no cambia (imágenes, logos, tema, estilos...).
+
+    Todo ocurre en memoria (io.BytesIO): no se crea ningún archivo en disco, ni siquiera temporal."""
     try:
         zin = zipfile.ZipFile(io.BytesIO(datos))
     except zipfile.BadZipFile:
         raise ArchivoNoSoportado("El archivo no es un .xlsx válido (o está dañado).")
+    # El lector se cierra al terminar o al fallar: no queda ningún objeto abierto con el archivo subido.
+    with zin:
+        return _procesar_paquete(zin)
+
+
+def _procesar_paquete(zin):
     infos = zin.infolist()
     if sum(i.file_size for i in infos) > LIMITE_DESCOMPRIMIDO_MB * 1024 * 1024:
         raise ArchivoNoSoportado(
@@ -996,5 +1004,7 @@ def procesar_xlsx(datos):
             "El archivo contiene " + ", ".join(sin_ajustar) + ". Se conservaron, pero sus referencias a celdas "
             "no se ajustaron; si alguna queda a la derecha de la columna de nombres, revísala.")
 
-    return salida.getvalue(), {"registros": len(nombres), "conteo": conteo, "vista_previa": vista_previa,
-                               "revisar": por_revisar, "advertencias": advertencias}
+    resultado = salida.getvalue()
+    salida.close()                  # libera el búfer de trabajo: solo queda la copia que se devuelve
+    return resultado, {"registros": len(nombres), "conteo": conteo, "vista_previa": vista_previa,
+                       "revisar": por_revisar, "advertencias": advertencias}
