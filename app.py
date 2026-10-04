@@ -30,8 +30,7 @@ def resumen_edades(res):
     """Conteo de menores de edad en pantalla. El Excel de salida no cambia."""
     fechas = res["fechas_nacimiento"]
     if fechas is None:
-        st.info("No se encontró una columna de FECHA DE NACIMIENTO, así que no se pueden contar los menores de edad.")
-        return
+        return                      # sin columna de fecha de nacimiento, el apartado no aparece
     hoy = fecha_hoy()
     edades, sin_fecha, no_validas = edades_validas(fechas["valores"], hoy, fechas["fecha1904"])
     consulta_edades(edades, res["registros"], sin_fecha, no_validas, hoy)
