@@ -14,24 +14,84 @@
          Esta regla devuelve el valor que tiene el botón en Streamlit Cloud. */
       [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-borderlessIcon"] { line-height: 1.6; }
 
-      /* Aviso de carga en español (sustituye a los avisos técnicos de stlite en inglés, con el mismo aspecto). */
+      /* Pantalla de carga con la estética de la app (colores, logo y tipografía de styles.py) mientras se
+         prepara Python. Cubre el esqueleto de stlite y desaparece cuando la app dibuja su portada. */
       #cargando {
-        position: fixed; right: 16px; bottom: 16px; z-index: 10000;
-        display: flex; align-items: center; gap: 10px;
-        padding: 14px 18px; border-radius: 8px;
-        background: #fff; color: #6b7280; box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
-        font: 14px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --tinta: #e2e8f0; --gris: #94a3b8; --borde: #263449; --fondo-app: #0b1220; --fondo-card: #111a2e;
+        --verde: #10b981; --azul: #3b82f6;
+        position: fixed; inset: 0; z-index: 10000;
+        display: flex; align-items: center; justify-content: center; padding: 24px;
+        background:
+          radial-gradient(1000px 500px at 10% -10%, rgba(59,130,246,.16), transparent 60%),
+          radial-gradient(900px 500px at 100% 0%, rgba(16,185,129,.12), transparent 60%),
+          var(--fondo-app);
+        color: var(--tinta);
+        font-family: "Source Sans", sans-serif; /* la misma fuente con la que Streamlit dibuja la app */
+        transition: opacity .35s ease;
+      }
+      #cargando.listo { opacity: 0; pointer-events: none; }
+      #cargando .tarjeta {
+        width: 100%; max-width: 420px; text-align: center;
+        padding: 2.3rem 2rem 2.1rem 2rem; border-radius: 24px; position: relative; overflow: hidden;
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #059669 120%);
+        border: 1px solid rgba(255,255,255,.06);
+        box-shadow: 0 20px 40px -18px rgba(0,0,0,.65);
+      }
+      #cargando .tarjeta::after {
+        content: ""; position: absolute; right: -60px; top: -60px;
+        width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,.08);
+      }
+      #cargando .tarjeta::before {
+        content: ""; position: absolute; left: -50px; bottom: -80px;
+        width: 160px; height: 160px; border-radius: 50%; background: rgba(16,185,129,.25);
+      }
+      #cargando .logo { width: 60px; height: 60px; filter: drop-shadow(0 8px 14px rgba(0,0,0,.35)); position: relative; z-index: 1; }
+      #cargando h1 {
+        margin: .8rem 0 0 0; font-size: 2rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em;
+        color: #fff; position: relative; z-index: 1;
+      }
+      #cargando .lema { margin: .45rem 0 0 0; font-size: 1rem; font-weight: 600; color: rgba(255,255,255,.92); position: relative; z-index: 1; }
+      #cargando .estado {
+        display: inline-flex; align-items: center; gap: .65rem; margin-top: 1.6rem;
+        padding: .5rem 1rem; border-radius: 999px; position: relative; z-index: 1;
+        background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+        font-size: .9rem; font-weight: 500; color: #fff;
       }
       #cargando .giro {
-        width: 14px; height: 14px; border-radius: 50%;
-        border: 2px solid #d1d5db; border-top-color: #6b7280;
+        width: 16px; height: 16px; border-radius: 50%; flex: none;
+        border: 2.5px solid rgba(255,255,255,.25); border-top-color: var(--verde); border-right-color: var(--azul);
         animation: giro .8s linear infinite;
       }
+      #cargando .nota { margin: 1rem 0 0 0; font-size: .82rem; color: rgba(255,255,255,.7); position: relative; z-index: 1; }
       @keyframes giro { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { #cargando .giro { animation-duration: 2.4s; } }
+      @media (max-width: 640px) { #cargando .tarjeta { padding: 1.9rem 1.3rem; } #cargando h1 { font-size: 1.7rem; } }
     </style>
   </head>
   <body>
-    <div id="cargando" role="status"><span class="giro"></span>Preparando la aplicación…</div>
+    <div id="cargando" role="status" aria-live="polite">
+      <div class="tarjeta">
+        <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="g-cargando" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#1d4ed8"/><stop offset="1" stop-color="#10b981"/>
+            </linearGradient>
+          </defs>
+          <rect width="64" height="64" rx="14" fill="url(#g-cargando)"/>
+          <rect x="13" y="15" width="38" height="9" rx="4.5" fill="#fff"/>
+          <rect x="30.5" y="27" width="3" height="4.5" fill="#fff" fill-opacity=".75"/>
+          <path d="M27 31h10l-5 5.5z" fill="#fff" fill-opacity=".75"/>
+          <rect x="13" y="39" width="7.4" height="10" rx="2.2" fill="#fff"/>
+          <rect x="23" y="39" width="7.4" height="10" rx="2.2" fill="#fff"/>
+          <rect x="33" y="39" width="7.4" height="10" rx="2.2" fill="#fff"/>
+          <rect x="43" y="39" width="7.4" height="10" rx="2.2" fill="#fff"/>
+        </svg>
+        <h1>Desglosa</h1>
+        <div class="lema">Separador inteligente de nombres</div>
+        <div class="estado"><span class="giro"></span>Preparando la aplicación…</div>
+        <p class="nota">La primera vez puede tardar unos segundos.</p>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module">
       // Versión stlite: la misma aplicación (app.py, styles.py, parser.py, excel_engine.py) se ejecuta
@@ -56,13 +116,19 @@
         document.getElementById("root"),
       );
 
-      // El aviso desaparece en cuanto la app dibuja su primer contenido, o si stlite muestra un error de carga
-      // (los errores siguen apareciendo con sus propios avisos).
+      // La pantalla de carga se desvanece en cuanto la app dibuja su portada, o desaparece al momento si
+      // stlite muestra un error de carga (los errores siguen apareciendo con sus propios avisos).
       const aviso = document.getElementById("cargando");
       const observador = new MutationObserver(() => {
-        if (document.querySelector('[data-testid="stMarkdownContainer"], .Toastify__toast--error')) {
+        if (document.querySelector(".Toastify__toast--error")) {
           aviso.remove();
           observador.disconnect();
+        } else if (document.querySelector('.hero, [data-testid="stFileUploader"]')) {
+          observador.disconnect();
+          setTimeout(() => {
+            aviso.classList.add("listo");
+            setTimeout(() => aviso.remove(), 400);
+          }, 300);
         }
       });
       observador.observe(document.body, { childList: true, subtree: true });
