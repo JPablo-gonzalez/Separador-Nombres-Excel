@@ -11,6 +11,7 @@ Aplicación publicada: <https://separador-nombres-excel.streamlit.app/>
 - **Sin letras:** las celdas sin prefijo se resuelven solas, sin preguntar nada al usuario. El programa compara todas las lecturas posibles usando diccionarios de nombres y apellidos comunes, terminaciones típicas de apellido (-EZ, -IZ, -OZ, -AZ) y las palabras que las filas más claras del mismo archivo le enseñan. Las filas con poca evidencia aparecen en una tabla "Filas para revisar".
 - **Archivos mixtos:** un mismo archivo puede combinar celdas con (A), con (B) y sin letra.
 - **Conectores:** "DE LA", "DEL", "DE", "SAN", "VON" y similares se unen a la palabra siguiente ("DE LA CRUZ"), y los bloques religiosos como "DE JESUS" o "DEL CARMEN" cuentan como una sola palabra.
+- **Conteo de menores de edad (solo en pantalla):** si la hoja tiene una columna `FECHA DE NACIMIENTO` (o variantes como "FECHA NAC." o "F. NACIMIENTO"), la página muestra cuántas personas son menores de la edad que se escriba en el campo numérico (18 por defecto), por ejemplo "Personas menores de 18 años: 192 de 1470". La edad se calcula a la fecha de hoy en Colombia y entiende fechas de Excel y fechas escritas como texto ("27/06/1953", "27 de junio de 1953"...). El Excel de salida no cambia en nada.
 - **Preservación del formato de Excel:** se conservan imágenes, logos, colores, estilos, celdas combinadas, tablas, filtros, fórmulas, formatos condicionales, validaciones y nombres definidos. Las tablas y filtros se amplían para incluir las columnas nuevas.
 - **Archivos pesados:** el `.xlsx` se edita por dentro, sin cargar el libro completo en memoria, así que hojas con mucho formato o con celdas perdidas en filas lejanas no saturan el servidor.
 
@@ -21,12 +22,13 @@ Aplicación publicada: <https://separador-nombres-excel.streamlit.app/>
 | `app.py` | Punto de entrada y controlador. Contiene solo el flujo principal de Streamlit: subir el archivo, procesarlo y mostrar el resultado. |
 | `styles.py` | Estética e interfaz visual: nombre y logo de la app, paletas de color (tema oscuro y claro), CSS, encabezado, pasos, tarjeta de resultado, pie de página y botón de cambio de tema. |
 | `parser.py` | Motor semántico de nombres: diccionarios de nombres y apellidos, conectores, agrupación de conectores y el motor de decisión (`resolver_lista` y `analizar_nombre`). |
+| `edades.py` | Edades: reconoce el encabezado de la fecha de nacimiento, interpreta la fecha, calcula la edad y cuenta los menores de la edad elegida. Solo alimenta el resumen en pantalla. |
 | `excel_engine.py` | Motor de Excel: búsqueda del encabezado, inserción de las 4 columnas, desplazamiento de referencias y fórmulas, celdas combinadas, tablas, filtros, dibujos e imágenes (`procesar_xlsx`). |
 | `requirements.txt` | Dependencias de Python. |
 | `.streamlit/config.toml` | Tema base, límite de subida y telemetría de Streamlit desactivada. |
 | `favicon.png` | Icono de la pestaña del navegador. |
 
-Las dependencias van en un solo sentido: `app.py` usa `styles.py` y `excel_engine.py`, y `excel_engine.py` usa `parser.py`.
+Las dependencias van en un solo sentido: `app.py` usa `styles.py`, `edades.py` y `excel_engine.py`, y `excel_engine.py` usa `parser.py` y `edades.py`.
 
 ## Privacidad de los archivos
 
