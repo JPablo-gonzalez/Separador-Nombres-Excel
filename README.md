@@ -25,6 +25,9 @@ Aplicación publicada: <https://separador-nombres-excel.streamlit.app/>
 | `requirements.txt` | Dependencias de Python. |
 | `.streamlit/config.toml` | Tema base, límite de subida y telemetría de Streamlit desactivada. |
 | `favicon.png` | Icono de la pestaña del navegador. |
+| `index.html` | Solo para la versión stlite: página estática que ejecuta la misma `app.py` dentro del navegador (ver más abajo). |
+| `.nojekyll` | Hace que GitHub Pages publique también `.streamlit/config.toml` (sin él, oculta las carpetas que empiezan por punto). |
+| `pruebas/` | Scripts de las pruebas de paridad entre la versión de Streamlit Cloud y la versión stlite. La app no los usa. |
 
 Las dependencias van en un solo sentido: `app.py` usa `styles.py` y `excel_engine.py`, y `excel_engine.py` usa `parser.py`.
 
@@ -42,7 +45,31 @@ Límites que no dependen del código:
 - **En Streamlit Community Cloud el archivo sí sale del computador.** Viaja cifrado (HTTPS) hasta el servidor de Streamlit, se procesa en la memoria de ese servidor y el resultado vuelve al navegador. El código no lo guarda, pero la infraestructura (proxies, registros de acceso, volcados de memoria o swap del proveedor) no está bajo nuestro control.
 - **Python no puede borrar la RAM de forma segura:** al soltar un dato, la memoria se marca libre y se reutiliza, pero sus bytes no se sobrescriben al instante. Lo que se garantiza es que el programa no conserva referencias a los datos.
 
-Para que el archivo no salga del computador, ejecuta la aplicación localmente (sección siguiente).
+Para que el archivo no salga del computador, usa la versión stlite (sección siguiente) o ejecuta la aplicación localmente.
+
+## Versión stlite (el Excel se procesa dentro del navegador)
+
+`index.html` carga [stlite](https://github.com/whitphx/stlite) 1.9.2, que trae Streamlit 1.62.0 y Python 3.13 compilado para el navegador (Pyodide 0.29.3), y ejecuta los mismos archivos `app.py`, `styles.py`, `parser.py`, `excel_engine.py`, `favicon.png` y `.streamlit/config.toml`, leídos del mismo sitio. No hay una segunda copia del programa: cualquier cambio en esos archivos llega también a esta versión.
+
+Qué descarga el navegador al abrir la página (solo código, nunca datos del usuario):
+
+- stlite y Pyodide desde `cdn.jsdelivr.net`;
+- algunos paquetes de Python (openpyxl, protobuf y otros que Streamlit necesita) desde `pypi.org` y `files.pythonhosted.org`;
+- los archivos de la app desde el propio sitio.
+
+Son unos 45 MB sin comprimir (unos 27 MB por la red) la primera vez; después el navegador los guarda en caché. Esos servicios ven, como cualquier web, la IP y que se abrió la página, pero no el Excel.
+
+Qué pasa con el Excel: se lee, se procesa y se descarga dentro de la pestaña. Comprobado en un navegador real: al subir, procesar y descargar no sale ninguna petición que envíe datos, y con toda la red bloqueada después de cargar la página la app procesa y descarga igual, con el mismo resultado byte a byte.
+
+Diferencias conocidas con la versión de Streamlit Cloud:
+
+- Al abrir la página aparece la pantalla de carga de stlite (con avisos en inglés) durante unos segundos mientras se prepara Python.
+- El procesamiento corre en el computador de quien usa la app; con archivos muy grandes es más lento que en el servidor (60.000 filas: unos 25 s frente a unos 13 s) y usa más memoria del navegador.
+- `index.html` añade una única regla de CSS de compatibilidad: stlite cambia la prioridad de una regla global de Streamlit y la caja de subida quedaba 5 px más baja con un archivo cargado; la regla devuelve el valor original.
+
+Publicación en GitHub Pages: en **Settings → Pages**, elige **Deploy from a branch**, la rama `stlite` y la carpeta `/ (root)`. La página queda en `https://<usuario>.github.io/Separador-Nombres-Excel/`.
+
+Para probarla en tu equipo sin publicarla, sirve la carpeta con cualquier servidor estático, por ejemplo `python -m http.server 8000`, y abre <http://localhost:8000/>.
 
 ## Instalación y ejecución local
 

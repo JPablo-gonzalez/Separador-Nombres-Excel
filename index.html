@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Desglosa · Separador de nombres</title>
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.9.2/build/stlite.css" />
+    <style>
+      /* Compatibilidad, no estética: stlite encierra la regla global de Streamlit
+         "button { line-height: inherit }" dentro de una clase, y así gana a la altura de línea propia del botón
+         (1.6). Con un archivo cargado, la caja de subida quedaba 5 px más baja que en Streamlit Cloud.
+         Esta regla devuelve el valor que tiene el botón en Streamlit Cloud. */
+      [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-borderlessIcon"] { line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      // Versión stlite: la misma aplicación (app.py, styles.py, parser.py, excel_engine.py) se ejecuta
+      // con Python dentro del navegador (Pyodide). El Excel nunca se envía a ningún servidor.
+      // Los archivos de Python se leen tal cual del mismo sitio; no hay copias del código aquí.
+      import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.9.2/build/stlite.js";
+
+      mount(
+        {
+          entrypoint: "app.py",
+          requirements: ["openpyxl>=3.1"],
+          files: {
+            "app.py": { url: "app.py" },
+            "styles.py": { url: "styles.py" },
+            "parser.py": { url: "parser.py" },
+            "excel_engine.py": { url: "excel_engine.py" },
+            "favicon.png": { url: "favicon.png" },
+            ".streamlit/config.toml": { url: ".streamlit/config.toml" },
+          },
+        },
+        document.getElementById("root"),
+      );
+    </script>
+  </body>
+</html>
