@@ -13,9 +13,25 @@
          (1.6). Con un archivo cargado, la caja de subida quedaba 5 px más baja que en Streamlit Cloud.
          Esta regla devuelve el valor que tiene el botón en Streamlit Cloud. */
       [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-borderlessIcon"] { line-height: 1.6; }
+
+      /* Aviso de carga en español (sustituye a los avisos técnicos de stlite en inglés, con el mismo aspecto). */
+      #cargando {
+        position: fixed; right: 16px; bottom: 16px; z-index: 10000;
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 18px; border-radius: 8px;
+        background: #fff; color: #6b7280; box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+        font: 14px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      #cargando .giro {
+        width: 14px; height: 14px; border-radius: 50%;
+        border: 2px solid #d1d5db; border-top-color: #6b7280;
+        animation: giro .8s linear infinite;
+      }
+      @keyframes giro { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
+    <div id="cargando" role="status"><span class="giro"></span>Preparando la aplicación…</div>
     <div id="root"></div>
     <script type="module">
       // Versión stlite: la misma aplicación (app.py, styles.py, parser.py, excel_engine.py) se ejecuta
@@ -26,6 +42,7 @@
       mount(
         {
           entrypoint: "app.py",
+          disableProgressToasts: true,
           requirements: ["openpyxl>=3.1"],
           files: {
             "app.py": { url: "app.py" },
@@ -38,6 +55,17 @@
         },
         document.getElementById("root"),
       );
+
+      // El aviso desaparece en cuanto la app dibuja su primer contenido, o si stlite muestra un error de carga
+      // (los errores siguen apareciendo con sus propios avisos).
+      const aviso = document.getElementById("cargando");
+      const observador = new MutationObserver(() => {
+        if (document.querySelector('[data-testid="stMarkdownContainer"], .Toastify__toast--error')) {
+          aviso.remove();
+          observador.disconnect();
+        }
+      });
+      observador.observe(document.body, { childList: true, subtree: true });
     </script>
   </body>
 </html>

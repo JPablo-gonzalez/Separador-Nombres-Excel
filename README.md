@@ -63,9 +63,9 @@ Qué pasa con el Excel: se lee, se procesa y se descarga dentro de la pestaña. 
 
 Diferencias conocidas con la versión de Streamlit Cloud:
 
-- Al abrir la página aparece la pantalla de carga de stlite (con avisos en inglés) durante unos segundos mientras se prepara Python.
+- Al abrir la página aparece durante unos segundos la pantalla de carga de stlite mientras se prepara Python. Los avisos técnicos de stlite (en inglés) están ocultos y en su lugar se muestra "Preparando la aplicación…"; si la carga falla, el error de stlite sí se muestra.
 - El procesamiento corre en el computador de quien usa la app; con archivos muy grandes es más lento que en el servidor (60.000 filas: unos 25 s frente a unos 13 s) y usa más memoria del navegador.
-- `index.html` añade una única regla de CSS de compatibilidad: stlite cambia la prioridad de una regla global de Streamlit y la caja de subida quedaba 5 px más baja con un archivo cargado; la regla devuelve el valor original.
+- `index.html` añade, además del aviso de carga, una única regla de CSS de compatibilidad: stlite cambia la prioridad de una regla global de Streamlit y la caja de subida quedaba 5 px más baja con un archivo cargado; la regla devuelve el valor original.
 
 Publicación en GitHub Pages: en **Settings → Pages**, elige **Deploy from a branch**, la rama `stlite` y la carpeta `/ (root)`. La página queda en `https://<usuario>.github.io/Separador-Nombres-Excel/`.
 
