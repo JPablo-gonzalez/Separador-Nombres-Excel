@@ -312,6 +312,28 @@ html, body, [class*="css"], .stApp {
 .stat .valor { font-size: 1.35rem; font-weight: 800; color: var(--acento-texto); }
 .stat .etq { font-size: .72rem; color: var(--gris); text-transform: uppercase; letter-spacing: .05em; }
 
+/* Consulta de edades */
+.edades {
+    background: var(--fondo-card);
+    border: 1px solid var(--borde);
+    border-left: 5px solid var(--azul);
+    border-radius: 16px;
+    padding: 1.1rem 1.3rem;
+    margin: .3rem 0 1rem 0;
+    box-shadow: 0 10px 24px -16px var(--sombra);
+}
+.edades .etq { font-size: .92rem; color: var(--gris); }
+.edades .cifra { font-size: 1.9rem; font-weight: 800; color: var(--acento-texto); line-height: 1.25; }
+.edades .cifra span { font-size: 1.05rem; font-weight: 600; color: var(--gris); }
+.edades .nota { font-size: .8rem; color: var(--gris); margin-top: .35rem; }
+.st-key-edad_limite { max-width: 340px; }
+.st-key-edad_limite label p { font-size: .9rem; font-weight: 600; color: var(--gris); }
+.st-key-edad_limite [data-baseweb="input"] { border-color: var(--borde); }
+.st-key-edad_limite [data-baseweb="input"],
+.st-key-edad_limite [data-baseweb="input"] > div,
+.st-key-edad_limite input,
+.st-key-edad_limite button { background: var(--fondo-card) !important; color: var(--tinta) !important; }
+
 /* Alertas nativas */
 [data-testid="stAlert"] {
     border-radius: 14px;
@@ -417,6 +439,25 @@ def tarjeta_resultado(res):
                             </div>
                         </div>
                         """,
+        unsafe_allow_html=True,
+    )
+
+
+def tarjeta_edades(menores, total, limite, sin_fecha, no_validas, hoy):
+    """Recuadro con cuántas personas son menores que la edad elegida."""
+    excluidas = []
+    if sin_fecha:
+        excluidas.append(f"{sin_fecha} sin fecha de nacimiento")
+    if no_validas:
+        excluidas.append(f"{no_validas} con una fecha que no se pudo leer")
+    nota = f"Edades calculadas al {hoy:%d/%m/%Y}."
+    if excluidas:
+        nota += " No se contaron: " + " y ".join(excluidas) + "."
+    anios = "año" if limite == 1 else "años"
+    st.markdown(
+        f'<div class="edades"><div class="etq">Personas menores de {limite} {anios}</div>'
+        f'<div class="cifra">{menores} <span>de {total}</span></div>'
+        f'<div class="nota">{nota}</div></div>',
         unsafe_allow_html=True,
     )
 

@@ -17,6 +17,7 @@ from openpyxl.formula.tokenizer import Token
 from openpyxl.formula.translate import Translator
 from openpyxl.utils import column_index_from_string, get_column_letter, range_boundaries
 
+import edades
 from parser import resolver_lista
 
 # =============================================================================
@@ -830,6 +831,81 @@ def _escribir_filas(hoja, ini, fin, p, destino):
         destino.write(b"".join(lote))
 
 
+# ---------------------------------------------------------------- fecha de nacimiento (solo lectura)
+# Las fechas se leen solo para el resumen de edades en pantalla: el archivo de salida no cambia.
+
+def _buscar_fecha(hoja, ini, fin, cadenas, fila_header):
+    """Columna de FECHA DE NACIMIENTO (o variantes) por encima de FILA_MAX_ENCABEZADO. Gana el encabezado
+    más claro; a igual claridad, el de la fila de encabezado de los nombres. Devuelve (fila, columna) o None."""
+    mejor, anterior = None, 0
+    for fm in _RE_FILA.finditer(hoja, ini, fin):
+        fila = _numero_fila(_attrs(fm.group(1)), anterior)
+        anterior = fila
+        if fila >= FILA_MAX_ENCABEZADO:
+            break
+        if fm.group(2) is None:
+            continue
+        siguiente = 1
+        for cm in _RE_CEL.finditer(fm.group(2)):
+            ca = _attrs(cm.group(1))
+            mr = _RE_REF_B.match(ca.get(b"r", b""))
+            col = _idx_col(mr.group(1)) if mr else siguiente
+            siguiente = col + 1
+            texto = _texto_celda(ca, cm.group(2), cadenas)
+            puntos = edades.puntaje_encabezado_fecha(texto) if texto else 0
+            clave = (puntos, fila == fila_header)
+            if puntos and (mejor is None or clave > mejor[0]):
+                mejor = (clave, fila, col)
+    return (mejor[1], mejor[2]) if mejor else None
+
+
+def _valor_fecha(cattrs, inner, cadenas):
+    """Valor de una celda de fecha: número (fecha de Excel), texto, o None si está vacía."""
+    if not inner:
+        return None
+    tipo = cattrs.get(b"t", b"n")
+    if tipo in (b"s", b"inlineStr") and b"<f" not in inner:
+        return _texto_celda(cattrs, inner, cadenas)
+    m = re.search(rb"<v>(.*?)</v>", inner, re.S)       # valor (o resultado guardado de una fórmula)
+    if not m:
+        return None
+    texto = _unesc_x(_unesc(m.group(1).decode("utf-8", "replace")))
+    if tipo == b"n":
+        try:
+            return float(texto)
+        except ValueError:
+            return texto
+    return texto if tipo in (b"str", b"d") else "?"     # booleano o error: hay algo, pero no es una fecha
+
+
+def _leer_fechas(zin, hoja, ini, fin, cadenas, fila_header, filas):
+    """Valor de la celda de fecha de nacimiento de cada fila de `filas` (None si está vacía), o None si
+    la hoja no tiene esa columna. También indica si el libro usa el sistema de fechas de 1904."""
+    hallada = _buscar_fecha(hoja, ini, fin, cadenas, fila_header)
+    if hallada is None:
+        return None
+    _, col_fecha = hallada
+    buscadas, valores, anterior = set(filas), {}, 0
+    for fm in _RE_FILA.finditer(hoja, ini, fin):
+        fila = _numero_fila(_attrs(fm.group(1)), anterior)
+        anterior = fila
+        if fila not in buscadas or fm.group(2) is None:
+            continue
+        siguiente = 1
+        for cm in _RE_CEL.finditer(fm.group(2)):
+            ca = _attrs(cm.group(1))
+            mr = _RE_REF_B.match(ca.get(b"r", b""))
+            col = _idx_col(mr.group(1)) if mr else siguiente
+            siguiente = col + 1
+            if col == col_fecha:
+                valores[fila] = _valor_fecha(ca, cm.group(2), cadenas)
+                break
+            if col > col_fecha:
+                break
+    fecha1904 = re.search(rb"<workbookPr\b[^>]*\bdate1904=\"(1|true)\"", zin.read("xl/workbook.xml")) is not None
+    return {"valores": [valores.get(f) for f in filas], "fecha1904": fecha1904}
+
+
 # ---------------------------------------------------------------- procesamiento del paquete
 
 def _copiar_info(info):
@@ -894,6 +970,7 @@ def _procesar_paquete(zin):
     nombres = _recoger_nombres(hoja, ini_datos, fin_datos, cadenas, p, filas_omitir)
     resultados = resolver_lista([t for _, t in nombres])
     p.resultados = {fila: res for (fila, _), res in zip(nombres, resultados)}
+    fechas = _leer_fechas(zin, hoja, ini_datos, fin_datos, cadenas, fila_header, [f for f, _ in nombres])
 
     nuevas_partes = {}
     for ruta, xml in tablas.items():
@@ -1007,4 +1084,4 @@ def _procesar_paquete(zin):
     resultado = salida.getvalue()
     salida.close()                  # libera el búfer de trabajo: solo queda la copia que se devuelve
     return resultado, {"registros": len(nombres), "conteo": conteo, "vista_previa": vista_previa,
-                       "revisar": por_revisar, "advertencias": advertencias}
+                       "revisar": por_revisar, "advertencias": advertencias, "fechas_nacimiento": fechas}
