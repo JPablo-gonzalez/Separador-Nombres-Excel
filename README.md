@@ -51,7 +51,7 @@ Para que el archivo no salga del computador, usa la versión stlite (sección si
 
 ## Versión stlite (el Excel se procesa dentro del navegador)
 
-`index.html` carga [stlite](https://github.com/whitphx/stlite) 1.9.2, que trae Streamlit 1.62.0 y Python 3.13 compilado para el navegador (Pyodide 0.29.3), y ejecuta los mismos archivos `app.py`, `styles.py`, `parser.py`, `excel_engine.py`, `favicon.png` y `.streamlit/config.toml`, leídos del mismo sitio. No hay una segunda copia del programa: cualquier cambio en esos archivos llega también a esta versión.
+`index.html` carga [stlite](https://github.com/whitphx/stlite) 1.9.2, que trae Streamlit 1.62.0 y Python 3.13 compilado para el navegador (Pyodide 0.29.3), y ejecuta los mismos archivos `app.py`, `styles.py`, `parser.py`, `excel_engine.py`, `edades.py`, `favicon.png` y `.streamlit/config.toml`, leídos del mismo sitio. No hay una segunda copia del programa: cualquier cambio en esos archivos llega también a esta versión.
 
 Qué descarga el navegador al abrir la página (solo código, nunca datos del usuario):
 

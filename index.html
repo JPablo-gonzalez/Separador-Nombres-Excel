@@ -94,7 +94,7 @@
     </div>
     <div id="root"></div>
     <script type="module">
-      // Versión stlite: la misma aplicación (app.py, styles.py, parser.py, excel_engine.py) se ejecuta
+      // Versión stlite: la misma aplicación (app.py, styles.py, parser.py, excel_engine.py, edades.py) se ejecuta
       // con Python dentro del navegador (Pyodide). El Excel nunca se envía a ningún servidor.
       // Los archivos de Python se leen tal cual del mismo sitio; no hay copias del código aquí.
       import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.9.2/build/stlite.js";
@@ -109,6 +109,7 @@
             "styles.py": { url: "styles.py" },
             "parser.py": { url: "parser.py" },
             "excel_engine.py": { url: "excel_engine.py" },
+            "edades.py": { url: "edades.py" },
             "favicon.png": { url: "favicon.png" },
             ".streamlit/config.toml": { url: ".streamlit/config.toml" },
           },
