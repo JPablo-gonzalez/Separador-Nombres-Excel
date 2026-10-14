@@ -74,8 +74,8 @@ CSS_TEMA_CLARO = f"<style>:root {{ {TEMA_CLARO} }}</style>"
 
 ESTILOS = """
 <style>
-/* Inter, Space Grotesk y JetBrains Mono se registran en .streamlit/config.toml ([[theme.fontFaces]]) y se
-   sirven desde la propia app (static/fonts). No se usa Google Fonts: enviaba la IP del usuario a un tercero. */
+/* Inter, Space Grotesk y JetBrains Mono se registran en index.html (@font-face, versión stlite) y se sirven
+   desde el propio sitio (static/fonts). No se usa Google Fonts: enviaba la IP del usuario a un tercero. */
 
 :root {
     --violeta: #663af3;                /* Void Violet: el ÚNICO acento, solo para el CTA principal */
