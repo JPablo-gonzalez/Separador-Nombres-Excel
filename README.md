@@ -36,7 +36,7 @@ Qué hace el programa con los datos (revisado en el código, no solo prometido):
 
 - **Sin disco:** el `.xlsx` se recibe y se procesa en memoria (`io.BytesIO`). El código no crea archivos, ni siquiera temporales, y Streamlit guarda los archivos subidos en memoria, no en disco.
 - **Sin cachés:** no se usa `st.cache_data` ni `st.cache_resource`. El resultado existe solo mientras se muestra en la sesión de quien lo subió: se descarta al quitar el archivo con la ✕, al subir otro o al cerrar la pestaña (Streamlit borra la sesión a partir de unos 2 minutos después de desconectarse).
-- **Sin servicios externos:** no hay peticiones HTTP, APIs, bases de datos ni analítica en el código. La telemetría de Streamlit está desactivada (`gatherUsageStats = false`) y la página no carga fuentes de Google.
+- **Sin servicios externos:** no hay peticiones HTTP, APIs, bases de datos ni analítica en el código. La telemetría de Streamlit está desactivada (`gatherUsageStats = false`) y la página no carga fuentes de Google: Inter, Space Grotesk y JetBrains Mono (licencia OFL) se sirven desde la propia app (`static/fonts`).
 - **Sin logs con datos:** el programa no imprime nada. Los errores inesperados muestran solo el tipo de error, nunca el contenido de una celda.
 
 Límites que no dependen del código:
