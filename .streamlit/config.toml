@@ -1,16 +1,40 @@
 [theme]
 base = "dark"
-primaryColor = "#3b82f6"
-backgroundColor = "#0b1220"
-secondaryBackgroundColor = "#111a2e"
-textColor = "#e2e8f0"
-font = "sans serif"
+# Paleta AuthKit (monocromática); el estilo completo está en styles.py.
+primaryColor = "#d1e4fa"
+backgroundColor = "#05060f"
+secondaryBackgroundColor = "#2f343e"
+textColor = "#c7d3ea"
+# Fuentes servidas por la propia app desde static/fonts (licencia OFL); no se piden a Google ni a terceros.
+font = "Inter, system-ui, sans-serif"
+headingFont = "'Space Grotesk', Inter, sans-serif"
+codeFont = "'JetBrains Mono', monospace"
+
+[[theme.fontFaces]]
+family = "Inter"
+url = "app/static/fonts/inter.woff2"
+weight = "100 900"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "Space Grotesk"
+url = "app/static/fonts/space-grotesk.woff2"
+weight = "300 700"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "JetBrains Mono"
+url = "app/static/fonts/jetbrains-mono.woff2"
+weight = "100 800"
+style = "normal"
 
 [client]
 toolbarMode = "minimal"
 
 [server]
 maxUploadSize = 30
+# Sirve static/ (las fuentes de la interfaz) desde la propia app, sin pedirlas a terceros.
+enableStaticServing = true
 
 [browser]
 # No enviar estadísticas de uso de la app a Streamlit (telemetría del navegador).
