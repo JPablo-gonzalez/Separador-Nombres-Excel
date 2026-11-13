@@ -5,6 +5,8 @@ resultado con los componentes visuales de styles.py.
 """
 
 import gc
+import re
+import unicodedata
 
 import streamlit as st
 
@@ -34,6 +36,20 @@ def resumen_edades(res):
     hoy = fecha_hoy()
     edades, sin_fecha, no_validas = edades_validas(fechas["valores"], hoy, fechas["fecha1904"])
     consulta_edades(edades, res["registros"], sin_fecha, no_validas, hoy)
+
+
+def nombre_descarga(nombre):
+    """Nombre del archivo de salida apto para cualquier navegador: solo letras y signos ASCII.
+
+    En la versión web (stlite) la descarga viaja con el nombre en un encabezado HTTP que arma el propio navegador,
+    y con ciertos caracteres especiales en el nombre ese encabezado falla: el botón no hace nada y no queda rastro
+    en Descargas. Aquí las tildes y la ñ se cambian por
+    su letra base ("Niños añadidos" -> "Ninos anadidos") y cualquier otro carácter raro por "_".
+    """
+    tallo = nombre[:-5] if nombre.lower().endswith(".xlsx") else nombre
+    tallo = "".join(c for c in unicodedata.normalize("NFKD", tallo) if not unicodedata.combining(c))
+    tallo = re.sub(r"[^A-Za-z0-9 ._()-]+", "_", tallo).strip(" ._") or "archivo"
+    return f"OK_{tallo}.xlsx"
 
 
 def main():
@@ -77,7 +93,7 @@ def main():
                     st.download_button(
                         label="📥 Descargar Archivo Procesado",
                         data=salida,
-                        file_name=f"OK_{archivo_subido.name}",
+                        file_name=nombre_descarga(archivo_subido.name),
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         on_click="ignore",  # descargar no vuelve a ejecutar el script ni a procesar el archivo
                     )
